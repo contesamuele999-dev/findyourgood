@@ -284,10 +284,17 @@ function compilato(data){
   if(!v) return false;
   return v.umore!=null || v.stress!=null || v.peso!=null || v.sonnoQ!=null ||
     v.temperatura!=null || v.stanchezza!=null || v.sonnolenza!=null || v.sole!=null ||
-    v.acqua!=null || v.urina!=null || v.feci!=null || v.occhi!=null ||
+    v.acqua!=null || v.urina!=null || v.feci!=null || v.occhi!=null || v.scariche!=null ||
+    v.denti!=null || v.filo!=null || v.colluttorio ||
     v.risvegli!=null || (v.sogni&&v.sogni.trim()!=="") || v.incubi || v.oraDormire || v.oraSveglia ||
     (v.sintomi&&v.sintomi.length>0) || (v.attivita&&v.attivita.length>0) ||
     Object.keys(v.pasti||{}).length>0 || (v.note&&v.note.trim()!=="");
+}
+/* Quali moduli tracciare (default: tutti). Configurabile dalle Impostazioni. */
+function traccia(k){
+  const t=S.impostazioni&&S.impostazioni.traccia;
+  if(!t) return true;
+  return t[k]!==false;
 }
 function imposta(campo, valore){
   const v=voce(dataInModifica);
@@ -371,6 +378,20 @@ const ESEMPI_TIPO={
   sauna:["Sauna","Bagno turco","Massaggio","Idromassaggio","Crioterapia"],
   vacanza:["Giornata di riposo","Weekend fuori","Ferie","Relax a casa"]
 };
+
+const MODULI_TRACCIA=[
+  ["peso","⚖️ Peso"],
+  ["sonno","😴 Sonno e risvegli"],
+  ["corpoAmbiente","🌤️ Corpo e ambiente (temperatura, stanchezza, sole)"],
+  ["idratazione","💧 Acqua bevuta"],
+  ["urina","🚻 Colore urina"],
+  ["feci","🚽 Scariche e feci"],
+  ["occhi","👁️ Giallore occhi"],
+  ["pasti","🍽️ Pasti"],
+  ["disturbi","🩺 Disturbi/sintomi"],
+  ["attivita","🌿 Cura di te (attività)"],
+  ["igiene","🪥 Igiene orale (denti, filo, colluttorio)"]
+];
 
 /* ============ NAVIGAZIONE ============ */
 function vai(v){
@@ -484,7 +505,7 @@ function vistaOggi(){
   </div>`;
 
   // Peso
-  h+=`<div class="card"><h2>⚖️ Peso</h2>
+  if(traccia('peso')) h+=`<div class="card"><h2>⚖️ Peso</h2>
     <div class="peso-box">
       <button class="btn" onclick="modificaPeso(-0.1)">−</button>
       <input type="number" step="0.1" inputmode="decimal" value="${v.peso!=null?v.peso:(ultimoPeso()!=null?ultimoPeso():"")}" placeholder="kg"
@@ -495,7 +516,7 @@ function vistaOggi(){
   </div>`;
 
   // Sonno
-  h+=`<div class="card"><h2>😴 Sonno (notte scorsa)</h2>
+  if(traccia('sonno')) h+=`<div class="card"><h2>😴 Sonno (notte scorsa)</h2>
     <div class="sezione-scala"><div class="nome-scala">Com'era la qualità?</div>${scala("sonnoQ",v.sonnoQ,SONNO_EMOJI,["Pessima","Ottima"])}</div>
     <button class="dettagli-btn" onclick="togglaSezione('dett-sonno')">🌙 Dettagli notte (facoltativo) ▾</button>
     <div id="dett-sonno" class="${sezClass('dett-sonno', v.oraDormire||v.oraSveglia||v.risvegli!=null||v.sogni||v.incubi)}">
@@ -516,7 +537,7 @@ function vistaOggi(){
   </div>`;
 
   // Corpo e ambiente
-  h+=`<div class="card"><h2>🌤️ Corpo e ambiente</h2>
+  if(traccia('corpoAmbiente')) h+=`<div class="card"><h2>🌤️ Corpo e ambiente</h2>
     <div class="toggle-riga"><span>🌡️ Temperatura di oggi (°C)</span>
       <input type="number" inputmode="decimal" style="width:90px;font-size:1.1rem;padding:8px;border:2px solid var(--bordo);border-radius:12px;text-align:center"
         value="${v.temperatura!=null?v.temperatura:""}" placeholder="°C" onchange="impostaTemperatura(this.value)"></div>
@@ -530,7 +551,7 @@ function vistaOggi(){
   </div>`;
 
   // Idratazione e segnali del corpo
-  {
+  if(traccia('idratazione')||traccia('urina')||traccia('feci')||traccia('occhi')){
     const obiettivo=obiettivoAcqua();
     const bicch=v.acqua||0;
     const pctAcqua=Math.min(100, Math.round(bicch/obiettivo*100));
@@ -539,7 +560,8 @@ function vistaOggi(){
     else if(bicch<obiettivo) msgAcqua=`Ancora ${obiettivo-bicch} bicchier${obiettivo-bicch===1?"e":"i"} per l'obiettivo.`;
     else msgAcqua="Ottimo, obiettivo raggiunto! 💧";
     const sepStile="font-weight:700;margin:8px 0;padding-top:18px;border-top:1px solid var(--bordo)";
-    h+=`<div class="card"><h2>💧 Idratazione e segnali del corpo</h2>
+    h+=`<div class="card"><h2>💧 Idratazione e segnali del corpo</h2>`;
+    if(traccia('idratazione')) h+=`
       <div class="nome-scala" style="font-weight:700;margin-bottom:8px">Acqua bevuta (bicchieri da ~250 ml)</div>
       <div class="contatore-acqua">
         <button class="btn" onclick="modificaAcqua(-1)">−</button>
@@ -550,23 +572,37 @@ function vistaOggi(){
       <div class="sotto" style="text-align:center">${msgAcqua}</div>
       <div class="toggle-riga" style="margin-top:8px"><span>🎯 Obiettivo giornaliero</span>
         <span><input type="number" min="1" max="30" value="${obiettivo}" style="width:70px;text-align:center" onchange="impostaObiettivoAcqua(this.value)"> bicchieri</span></div>
-      <div class="sotto">Circa ${(obiettivo*0.25).toFixed(1).replace(".",",")} litri. Il fabbisogno varia da persona a persona: regolalo in base alle tue condizioni (vale per questo profilo).</div>
+      <div class="sotto">Circa ${(obiettivo*0.25).toFixed(1).replace(".",",")} litri. Il fabbisogno varia da persona a persona: regolalo in base alle tue condizioni (vale per questo profilo).</div>`;
 
+    if(traccia('urina')) h+=`
       <div class="nome-scala" style="${sepStile}">🚻 Colore dell'urina</div>
       <div class="chips">${URINA.map(([k,n,c])=>`<button class="chip ${v.urina===k?"attivo-verde":""}" onclick="imposta('urina','${k}')"><span class="pastiglia-colore" style="background:${c}"></span>${n}</button>`).join("")}</div>
-      <div class="sotto">${v.urina?notaUrina(v.urina):"Più l'urina è chiara, meglio sei idratato. È un ottimo segnale del corpo."}</div>
+      <div class="sotto">${v.urina?notaUrina(v.urina):"Più l'urina è chiara, meglio sei idratato. È un ottimo segnale del corpo."}</div>`;
 
+    if(traccia('feci')){
+      const nScar=v.scariche||0;
+      h+=`
+      <div class="nome-scala" style="${sepStile}">🚽 Quante volte sei andato in bagno (scariche)</div>
+      <div class="contatore-acqua">
+        <button class="btn" onclick="modificaScariche(-1)">−</button>
+        <div class="valore" style="color:var(--verde)">${nScar} 💩</div>
+        <button class="btn" onclick="modificaScariche(1)">+</button>
+      </div>
+      <div class="sotto" style="text-align:center">${nScar===0?"Tocca + per ogni volta che scarichi durante la giornata.":(nScar>=4?"Diverse scariche oggi: se sono liquide o si ripetono per più giorni, valuta col medico.":"Registrato. La regolarità intestinale è un buon segnale del corpo.")}</div>
       <div class="nome-scala" style="${sepStile}">💩 Colore delle feci</div>
       <div class="chips">${FECI.map(([k,n,c])=>`<button class="chip ${v.feci===k?"attivo-verde":""}" onclick="imposta('feci','${k}')"><span class="pastiglia-colore" style="background:${c}"></span>${n}</button>`).join("")}</div>
-      ${v.feci?`<div class="sotto">${notaFeci(v.feci)}</div>`:""}
+      ${v.feci?`<div class="sotto">${notaFeci(v.feci)}</div>`:""}`;
+    }
 
+    if(traccia('occhi')) h+=`
       <div class="nome-scala" style="${sepStile}">👁️ Giallore degli occhi</div>
       <div class="chips">${OCCHI.map(([k,n])=>`<button class="chip ${v.occhi===k?(k==="o_no"?"attivo-verde":"attivo"):""}" onclick="imposta('occhi','${k}')">${n}</button>`).join("")}</div>
-      ${v.occhi==="o_marcato"?`<div class="sotto">⚠️ Un giallore evidente di occhi o pelle va sempre mostrato a un medico (può riguardare fegato o bilirubina).</div>`:`<div class="sotto">Un colore giallo di occhi o pelle (ittero) è un segnale da non ignorare.</div>`}
-    </div>`;
+      ${v.occhi==="o_marcato"?`<div class="sotto">⚠️ Un giallore evidente di occhi o pelle va sempre mostrato a un medico (può riguardare fegato o bilirubina).</div>`:`<div class="sotto">Un colore giallo di occhi o pelle (ittero) è un segnale da non ignorare.</div>`}`;
+    h+=`</div>`;
   }
 
   // Pasti
+  if(traccia('pasti')){
   h+=`<div class="card"><h2>🍽️ Pasti</h2>`;
   for(const [pk,pn] of PASTI){
     const p=v.pasti[pk]||{};
@@ -581,8 +617,10 @@ function vistaOggi(){
       </div></div>`;
   }
   h+=`<div class="sotto">"Eccezione dieta" = hai mangiato qualcosa fuori dalla tua dieta abituale.</div></div>`;
+  }
 
   // Sintomi
+  if(traccia('disturbi')){
   h+=`<div class="card"><h2>🩺 Disturbi di oggi</h2><div class="chips">`;
   for(const [sk,sn] of SINTOMI){
     h+=`<button class="chip ${v.sintomi.includes(sk)?"attivo":""}" onclick="togglaLista('sintomi','${sk}')">${sn}</button>`;
@@ -612,8 +650,10 @@ function vistaOggi(){
     <div class="sotto">Se le ferite guariscono lentamente, parlane col medico (possibile carenza di vitamina K o rischio infezioni).</div>`;
   }
   h+=`<div class="sotto">Non selezionare niente = giornata senza disturbi 🎉</div></div>`;
+  }
 
   // Attività
+  if(traccia('attivita')){
   h+=`<div class="card"><h2>🌿 Cura di te (oggi)</h2><div class="chips">`;
   for(const [ak,an] of ATTIVITA){
     h+=`<button class="chip ${v.attivita.includes(ak)?"attivo-verde":""}" onclick="togglaLista('attivita','${ak}')">${an}</button>`;
@@ -647,6 +687,7 @@ function vistaOggi(){
     </div>`;
   }
   h+=`</div>`;
+  }
 
   // Salute del giorno (farmaci attivi, visite, notizie)
   {
@@ -669,10 +710,17 @@ function vistaOggi(){
     <button class="dettagli-btn" onclick="togglaSezione('dett-extra')">➕ Altri dettagli (facoltativi) ▾</button>
     <div id="dett-extra" class="${sezClass('dett-extra')}">
       <div class="sezione-scala" style="margin-top:10px"><div class="nome-scala">Quanto sei stato fermo/seduto?</div>${scala("sedentarieta",v.sedentarieta,null,["Sempre in movimento","Tutto il giorno fermo"])}</div>
-      <div class="sezione-scala"><div class="nome-scala">🪥 Lavaggi denti</div>
-        <div class="tre-bottoni">
-          ${[0,1,2].map(n=>`<button class="chip ${v.denti===n?"attivo-verde":""}" onclick="imposta('denti',${n})">${n===2?"2 o più":n}</button>`).join("")}
+      ${traccia('igiene')?`
+      <div class="sezione-scala"><div class="nome-scala">🪥 Lavaggi denti (quante volte)</div>
+        <div class="scala scala-num">
+          ${[0,1,2,3].map(n=>`<button class="${v.denti===n?"attivo":""}" onclick="imposta('denti',${n})">${n}</button>`).join("")}
         </div></div>
+      <div class="sezione-scala"><div class="nome-scala">🧵 Filo interdentale (quante volte)</div>
+        <div class="scala scala-num">
+          ${[0,1,2,3].map(n=>`<button class="${v.filo===n?"attivo":""}" onclick="imposta('filo',${n})">${n}</button>`).join("")}
+        </div></div>
+      <div class="toggle-riga"><span>🌊 Lavaggio con colluttorio</span>
+        <label class="interruttore"><input type="checkbox" ${v.colluttorio?"checked":""} onchange="imposta('colluttorio',this.checked)"><span class="slider"></span></label></div>`:""}
       <div class="toggle-riga"><span>Giornata in pessime condizioni igieniche?</span>
         <label class="interruttore"><input type="checkbox" ${v.igienePessima?"checked":""} onchange="imposta('igienePessima',this.checked)"><span class="slider"></span></label></div>
       <div class="nome-scala" style="font-weight:700; margin:10px 0 8px 0">📝 Note libere</div>
@@ -756,6 +804,14 @@ function modificaAcqua(delta){
   let n=(v.acqua||0)+delta;
   if(n<0) n=0; if(n>30) n=30;
   v.acqua = n===0 ? null : n;
+  v.agg=Date.now();
+  salva(); render();
+}
+function modificaScariche(delta){
+  const v=voce(dataInModifica);
+  let n=(v.scariche||0)+delta;
+  if(n<0) n=0; if(n>30) n=30;
+  v.scariche = n===0 ? null : n;
   v.agg=Date.now();
   salva(); render();
 }
@@ -911,6 +967,7 @@ function mostraRiepilogo(iso){
     corpo+=rieRiga("Temperatura", v.temperatura!=null?v.temperatura+" °C":"");
     corpo+=rieRiga("Acqua", v.acqua?v.acqua+" bicchieri":"");
     corpo+=rieRiga("Urina", v.urina?nomiUr[v.urina]:"");
+    corpo+=rieRiga("Scariche", v.scariche!=null?v.scariche+"×":"");
     corpo+=rieRiga("Feci", v.feci?nomiFe[v.feci]:"");
     corpo+=rieRiga("Occhi", v.occhi?nomiOc[v.occhi]:"");
     const pasti=PASTI.filter(([pk])=>v.pasti&&v.pasti[pk]&&(v.pasti[pk].q||v.pasti[pk].ora)).map(([pk,pn])=>{
@@ -931,6 +988,11 @@ function mostraRiepilogo(iso){
       });
       corpo+=rieRiga("Cura di te", a.join("<br>"));
     }
+    const igiene=[];
+    if(v.denti!=null) igiene.push("denti "+v.denti+"×");
+    if(v.filo!=null) igiene.push("filo "+v.filo+"×");
+    if(v.colluttorio) igiene.push("colluttorio");
+    corpo+=rieRiga("Igiene orale", igiene.join(", "));
     corpo+=rieRiga("Note", v.note?esc(v.note):"");
     const fAtt=sp.farmaci.filter(f=>iso>=f.dal&&(!f.al||iso<=f.al)).map(f=>esc(f.nome)+(f.dose?` (${esc(f.dose)})`:""));
     corpo+=rieRiga("Farmaci attivi", fAtt.join("<br>"));
@@ -1559,6 +1621,28 @@ function vistaImpostazioni(){
     <button class="btn" onclick="attivaNotifiche()">Attiva le notifiche</button>
     <div class="sotto">Le notifiche funzionano quando l'app è aperta nel browser. All'apertura, l'app ti mostra sempre i giorni da recuperare.</div></div>`;
 
+  // COSA TRACCIARE
+  h+=`<div class="card"><h2>🎚️ Cosa vuoi tracciare</h2>
+    <div class="sotto" style="margin-top:0;margin-bottom:6px">Attiva solo ciò che ti interessa. <b>Più cose tracci = più dettaglio e analisi accurate, ma più tempo da dedicare ogni giorno.</b> Meno cose = compili in pochi secondi.</div>`;
+  for(const [mk,mn] of MODULI_TRACCIA){
+    h+=`<div class="toggle-riga"><span>${mn}</span>
+      <label class="interruttore"><input type="checkbox" ${traccia(mk)?"checked":""} onchange="impostaTraccia('${mk}',this.checked)"><span class="slider"></span></label></div>`;
+  }
+  h+=`<div class="sotto">Umore, stress e note restano sempre disponibili. Le voci disattivate non appaiono nella schermata "Oggi", ma i dati già inseriti non vengono cancellati.</div></div>`;
+
+  // RESOCONTO PER IL MEDICO
+  {
+    const dDef=oggi(), dInizio=spostaGiorni(oggi(),-29);
+    h+=`<div class="card"><h2>📄 Resoconto per il medico</h2>
+      <div class="sotto" style="margin-top:0;margin-bottom:8px">Genera un riepilogo stampabile (salvabile in PDF) di tutti i dati del profilo <b>${esc(nomeProfiloCorrente())}</b> in un periodo scelto: sintomi, farmaci, sonno, segnali del corpo, medie e note.</div>
+      <div class="form-riga">
+        <label style="flex:1;min-width:130px">Dal<br><input type="date" id="rep-dal" value="${dInizio}" max="${dDef}"></label>
+        <label style="flex:1;min-width:130px">Al<br><input type="date" id="rep-al" value="${dDef}" max="${dDef}"></label>
+      </div>
+      <button class="btn btn-verde" onclick="generaResoconto()">🖨️ Genera resoconto (PDF)</button>
+      <div class="sotto">Si apre una pagina pronta da stampare: scegli "Salva come PDF" nella finestra di stampa, poi puoi inviarlo o portarlo al medico.</div></div>`;
+  }
+
   h+=cartaCloud();
 
   h+=`<div class="card"><h2>💾 I tuoi dati</h2>
@@ -1627,6 +1711,158 @@ function cancellaTutto(){
   localStorage.removeItem(CHIAVE);
   S=carica(); render();
 }
+function impostaTraccia(k, on){
+  if(!S.impostazioni.traccia) S.impostazioni.traccia={};
+  S.impostazioni.traccia[k]=!!on;
+  salva();
+}
+function nomeProfiloCorrente(){
+  const p=S.profili.find(p=>p.id===S.profiloCorrente);
+  return p?p.nome:"—";
+}
+
+/* ============ RESOCONTO PER IL MEDICO (PDF stampabile) ============ */
+function generaResoconto(){
+  let dal=valore("rep-dal")||spostaGiorni(oggi(),-29);
+  let al=valore("rep-al")||oggi();
+  if(dal>al){ const t=dal; dal=al; al=t; }
+  const voci=vociProfilo();
+  const sp=saluteProfilo();
+  const nomiSint=Object.fromEntries(SINTOMI);
+  const nomiAtt=Object.fromEntries(ATTIVITA);
+  const nomiUr=Object.fromEntries(URINA.map(([k,n])=>[k,n]));
+  const nomiFe=Object.fromEntries(FECI.map(([k,n])=>[k,n]));
+  const nomiOc=Object.fromEntries(OCCHI);
+  const nomiQ=Object.fromEntries(QUANTITA);
+  // giorni nel periodo, ordinati
+  const date=[];
+  for(let d=dal; d<=al; d=spostaGiorni(d,1)) date.push(d);
+  const dateCompilate=date.filter(d=>voci[d]&&compilato(d));
+  // medie
+  const num=(campo)=>{ const a=dateCompilate.map(d=>voci[d][campo]).filter(x=>x!=null); return a.length?(a.reduce((x,y)=>x+y,0)/a.length):null; };
+  const fmt=(x)=> x==null?"—":(Math.round(x*10)/10).toString().replace(".",",");
+  // conteggio sintomi
+  const contaSint={};
+  for(const d of dateCompilate) for(const s of (voci[d].sintomi||[])) contaSint[s]=(contaSint[s]||0)+1;
+  const sintOrd=Object.entries(contaSint).sort((a,b)=>b[1]-a[1]);
+  const totScariche=dateCompilate.reduce((t,d)=>t+(voci[d].scariche||0),0);
+  const giorniConScariche=dateCompilate.filter(d=>voci[d].scariche!=null).length;
+
+  const per=(iso)=>{
+    const v=voci[iso]; if(!v||!compilato(iso)) return "";
+    const parti=[];
+    if(v.umore!=null) parti.push(`Umore ${v.umore}/5`);
+    if(v.stress!=null) parti.push(`Stress ${v.stress}/5`);
+    if(v.sonnoQ!=null) parti.push(`Sonno ${v.sonnoQ}/5`);
+    if(v.oraDormire||v.oraSveglia) parti.push(`Orari sonno ${v.oraDormire||"?"}→${v.oraSveglia||"?"}`);
+    if(v.risvegli!=null) parti.push(`Risvegli ${v.risvegli}${v.motivoRisvegli?" ("+esc(v.motivoRisvegli)+")":""}`);
+    if(v.incubi) parti.push(`Incubi${v.notaIncubi?" ("+esc(v.notaIncubi)+")":""}`);
+    if(v.sogni) parti.push(`Sogni: ${esc(v.sogni)}`);
+    if(v.peso!=null) parti.push(`Peso ${v.peso} kg`);
+    if(v.temperatura!=null) parti.push(`Temp. ${v.temperatura}°C`);
+    if(v.acqua!=null) parti.push(`Acqua ${v.acqua} bicch.`);
+    if(v.urina) parti.push(`Urina: ${nomiUr[v.urina]}`);
+    if(v.scariche!=null) parti.push(`Scariche ${v.scariche}×`);
+    if(v.feci) parti.push(`Feci: ${nomiFe[v.feci]}`);
+    if(v.occhi) parti.push(`Occhi: ${nomiOc[v.occhi]}`);
+    if(v.stanchezza!=null) parti.push(`Stanchezza ${v.stanchezza}/5`);
+    if(v.sonnolenza!=null) parti.push(`Sonnolenza ${v.sonnolenza}/5`);
+    const igi=[]; if(v.denti!=null) igi.push("denti "+v.denti+"×"); if(v.filo!=null) igi.push("filo "+v.filo+"×"); if(v.colluttorio) igi.push("colluttorio");
+    if(igi.length) parti.push("Igiene: "+igi.join(", "));
+    const pasti=PASTI.filter(([pk])=>v.pasti&&v.pasti[pk]&&(v.pasti[pk].q||v.pasti[pk].ora)).map(([pk,pn])=>{
+      const p=v.pasti[pk]; return pn.replace(/^[^ ]+ /,"")+(p.q?": "+nomiQ[p.q]:"")+(p.ora?" ("+p.ora+")":"")+(p.ecc?" ⚠️":"");
+    });
+    if(pasti.length) parti.push("Pasti: "+pasti.join("; "));
+    if(v.sintomi&&v.sintomi.length){
+      const s=v.sintomi.map(sk=>{ const int=v.sintomiIntensita&&v.sintomiIntensita[sk]; const tp=v.sintomiTipo&&v.sintomiTipo[sk]; return (nomiSint[sk]||sk)+(tp?" "+esc(tp):"")+(int?" ("+int+"/10)":""); });
+      parti.push("<b>Disturbi:</b> "+s.join("; "));
+    }
+    if(v.attivita&&v.attivita.length){
+      const a=v.attivita.map(ak=>{
+        const dett=(v.attivitaDett&&v.attivitaDett[ak])||[];
+        if(dett.length) return dett.map(x=>(nomiAtt[ak]||ak).replace(/^[^ ]+ /,"")+(x.n?" "+esc(x.n):"")+(x.d?" "+x.d+"min":"")).join(", ");
+        return (nomiAtt[ak]||ak).replace(/^[^ ]+ /,"");
+      });
+      parti.push("Cura di te: "+a.join("; "));
+    }
+    const fAtt=sp.farmaci.filter(f=>iso>=f.dal&&(!f.al||iso<=f.al)).map(f=>esc(f.nome)+(f.dose?" ("+esc(f.dose)+")":""));
+    if(fAtt.length) parti.push("Farmaci: "+fAtt.join(", "));
+    const camb=sp.cambiamenti.filter(c=>c.data===iso).map(c=>esc(c.testo));
+    if(camb.length) parti.push("<b>Cambio terapia:</b> "+camb.join("; "));
+    const vis=sp.visite.filter(x=>x.data===iso).map(x=>esc(x.testo)+(x.invasivo?" (invasivo)":""));
+    if(vis.length) parti.push("<b>Visite/esami:</b> "+vis.join("; "));
+    if(v.note) parti.push("Note: "+esc(v.note));
+    return `<tr><td class="d">${iso.slice(8,10)}/${iso.slice(5,7)}</td><td>${parti.join(" · ")}</td></tr>`;
+  };
+
+  let righe=""; for(const d of date) righe+=per(d);
+  if(!righe) righe=`<tr><td colspan="2" style="color:#666">Nessun dato registrato nel periodo selezionato.</td></tr>`;
+
+  // farmaci/trattamenti attivi nel periodo
+  const farmPeriodo=sp.farmaci.filter(f=>f.dal<=al&&(!f.al||f.al>=dal))
+    .map(f=>`<li><b>${esc(f.nome)}</b>${f.dose?" — "+esc(f.dose):""} (dal ${f.dal}${f.al?" al "+f.al:", in corso"})</li>`).join("");
+  const trattPeriodo=sp.trattamenti.filter(t=>t.dal<=al&&(!t.al||t.al>=dal))
+    .map(t=>`<li><b>${esc(t.nome)}</b>${t.dett?" — "+esc(t.dett):""} (dal ${t.dal}${t.al?" al "+t.al:", in corso"})</li>`).join("");
+
+  const sintRiassunto = sintOrd.length
+    ? sintOrd.map(([sk,n])=>`${nomiSint[sk]||sk}: ${n} giorni`).join(" · ")
+    : "Nessun disturbo registrato nel periodo.";
+
+  const oggiStr=oggi();
+  const html=`<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<title>Resoconto ${esc(nomeProfiloCorrente())} ${dal} – ${al}</title>
+<style>
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; color:#1a1a1a; margin:0; padding:28px; font-size:12px; line-height:1.4}
+  h1{font-size:20px; margin:0 0 2px; color:#2e7d6b}
+  h2{font-size:14px; margin:20px 0 6px; color:#2e7d6b; border-bottom:2px solid #2e7d6b; padding-bottom:3px}
+  .meta{color:#555; font-size:12px; margin-bottom:4px}
+  .griglia{display:flex; flex-wrap:wrap; gap:10px; margin:8px 0}
+  .box{border:1px solid #ccc; border-radius:8px; padding:8px 12px; min-width:120px}
+  .box .n{font-size:18px; font-weight:800; color:#2e7d6b}
+  .box .l{font-size:11px; color:#555}
+  ul{margin:4px 0; padding-left:18px}
+  table{width:100%; border-collapse:collapse; margin-top:6px}
+  td{border-bottom:1px solid #e0e0e0; padding:5px 6px; vertical-align:top}
+  td.d{white-space:nowrap; font-weight:700; width:44px; color:#2e7d6b}
+  .avviso{margin-top:18px; font-size:10.5px; color:#777; font-style:italic}
+  .no-print{margin-bottom:16px}
+  button{font-size:14px; padding:10px 18px; border-radius:8px; border:none; background:#2e7d6b; color:#fff; cursor:pointer}
+  @media print{ .no-print{display:none} body{padding:0} }
+</style></head><body>
+<div class="no-print">
+  <button onclick="window.print()">🖨️ Stampa / Salva come PDF</button>
+</div>
+<h1>🌱 Find Your Good — Resoconto per il medico</h1>
+<div class="meta"><b>Persona:</b> ${esc(nomeProfiloCorrente())} &nbsp;|&nbsp; <b>Periodo:</b> ${dal} → ${al} (${date.length} giorni, ${dateCompilate.length} compilati)</div>
+<div class="meta">Generato il ${oggiStr}</div>
+
+<h2>Riepilogo del periodo</h2>
+<div class="griglia">
+  <div class="box"><div class="n">${fmt(num("umore"))}</div><div class="l">Umore medio /5</div></div>
+  <div class="box"><div class="n">${fmt(num("stress"))}</div><div class="l">Stress medio /5</div></div>
+  <div class="box"><div class="n">${fmt(num("sonnoQ"))}</div><div class="l">Sonno medio /5</div></div>
+  <div class="box"><div class="n">${fmt(num("peso"))}</div><div class="l">Peso medio kg</div></div>
+  <div class="box"><div class="n">${fmt(num("acqua"))}</div><div class="l">Acqua media/die</div></div>
+  <div class="box"><div class="n">${giorniConScariche?fmt(totScariche/Math.max(giorniConScariche,1)):"—"}</div><div class="l">Scariche medie/die</div></div>
+</div>
+<div><b>Disturbi nel periodo:</b> ${sintRiassunto}</div>
+
+<h2>Farmaci e integratori nel periodo</h2>
+${farmPeriodo?`<ul>${farmPeriodo}</ul>`:"<div style='color:#666'>Nessuno.</div>"}
+<h2>Trattamenti nel periodo</h2>
+${trattPeriodo?`<ul>${trattPeriodo}</ul>`:"<div style='color:#666'>Nessuno.</div>"}
+
+<h2>Diario giornaliero</h2>
+<table>${righe}</table>
+
+<div class="avviso">Documento generato automaticamente dai dati auto-riferiti dall'utente nell'app Find Your Good. Non è una diagnosi né una cartella clinica; è materiale di supporto al colloquio con il medico.</div>
+</body></html>`;
+
+  const w=window.open("","_blank");
+  if(!w){ alert("Consenti le finestre pop-up per generare il resoconto, poi riprova."); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
 
 /* ============ NOTIFICHE ============ */
 function attivaNotifiche(){
@@ -1646,14 +1882,21 @@ setInterval(()=>{
 }, 60000);
 
 /* ============ SUPABASE (cloud + login) ============ */
+/* CLOUD FISSO: inserisci qui una volta i dati del progetto Supabase.
+   Da quel momento all'accesso servono SOLO email e password (niente dati tecnici). */
+const CLOUD_URL="";   /* <-- Project URL, es. https://abcdefgh.supabase.co */
+const CLOUD_KEY="";   /* <-- chiave "anon public" (stringa lunga) */
+const CLOUD_FISSO = CLOUD_URL.indexOf("https://")===0 && CLOUD_KEY.length>20;
+
 const SUPA_CHIAVE="fyg_supa";
 let supaCfg=null;
-try{ supaCfg=JSON.parse(localStorage.getItem(SUPA_CHIAVE)||"null"); }catch(e){}
+if(CLOUD_FISSO){ supaCfg={url:CLOUD_URL, key:CLOUD_KEY}; }
+else { try{ supaCfg=JSON.parse(localStorage.getItem(SUPA_CHIAVE)||"null"); }catch(e){} }
 let supa=null, utente=null, statoSync="", mostraConfigCloud=false;
 
 function cartaCloud(){
   let h=`<div class="card"><h2>☁️ Cloud e accesso</h2>`;
-  if(!supaCfg || mostraConfigCloud){
+  if(!CLOUD_FISSO && (!supaCfg || mostraConfigCloud)){
     h+=`<p style="margin-top:0">Collega un progetto <b>Supabase</b> (gratuito) per salvare i dati nel cloud e usarli da più dispositivi con un login.</p>
       <div class="form-riga"><input type="text" id="su-url" placeholder="URL del progetto (https://xxxx.supabase.co)" value="${supaCfg?esc(supaCfg.url):""}"></div>
       <div class="form-riga"><input type="text" id="su-key" placeholder="Chiave 'anon public'" value="${supaCfg?esc(supaCfg.key):""}" onkeydown="if(event.key==='Enter')salvaConfigSupa()"></div>
@@ -1689,7 +1932,7 @@ create policy "solo i propri dati" on diario
         <button class="btn btn-piccolo" onclick="recuperaPassword()">Password dimenticata</button>
       </div>
       <div class="stato-sync">${statoSync}</div>
-      <button class="dettagli-btn" onclick="mostraConfigCloud=true;render()">⚙️ Modifica configurazione Supabase</button>`;
+      ${CLOUD_FISSO?"":`<button class="dettagli-btn" onclick="mostraConfigCloud=true;render()">⚙️ Modifica configurazione Supabase</button>`}`;
   } else {
     h+=`<p style="margin-top:0">✅ Connesso come <b>${esc(utente.email)}</b></p>
       <div style="display:flex; gap:10px; flex-wrap:wrap">
