@@ -67,6 +67,8 @@ h2{font-size:1.15rem; margin:0 0 10px 0; color:var(--verde);}
   font-size:1rem; cursor:pointer; min-height:44px;}
 .chip.attivo{border-color:var(--rosso); background:var(--rosso-chiaro); font-weight:600;}
 .chip.attivo-verde{border-color:var(--verde); background:var(--verde-chiaro); font-weight:600;}
+.chips-sugg{display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 8px;}
+.chip-sugg{padding:6px 12px; min-height:36px; font-size:.9rem; border-style:dashed; opacity:.9;}
 .sotto{font-size:.9rem; color:var(--grigio); margin-top:6px;}
 .peso-box{display:flex; align-items:center; gap:10px; justify-content:center;}
 .peso-box input{width:120px; font-size:1.6rem; text-align:center; padding:10px; border:2px solid var(--bordo); border-radius:14px; background:var(--input); color:var(--testo);}
@@ -181,7 +183,6 @@ input[type=time],input[type=date]{border:2px solid var(--bordo); border-radius:1
   <h1>🌱 Find Your Good</h1>
   <div style="display:flex; gap:10px; align-items:center;">
     <span class="streak" id="streak"></span>
-    <select id="selettore-profilo" onchange="cambiaProfilo(this.value)"></select>
   </div>
 </div>
 
@@ -341,10 +342,39 @@ function bannerCambiamenti(){
     Nei prossimi giorni segna bene disturbi e come ti senti: servirà a capire se il cambiamento ti fa stare <b>meglio, peggio o uguale</b>.</div>`;
 }
 
+function giorniConvalescenza(){
+  const n=S.impostazioni&&S.impostazioni.giorniConvalescenza;
+  return (n==null||isNaN(n))?3:Math.max(0,Math.min(14,n));
+}
+function bannerConvalescenza(){
+  const N=giorniConvalescenza();
+  if(N<=0) return "";
+  const voci=vociProfilo();
+  const vOggi=voci[dataInModifica];
+  const attiviOggi=new Set((vOggi&&vOggi.sintomi)||[]);
+  const nomi={}; SINTOMI.forEach(([k,n])=>nomi[k]=n);
+  const inConvalescenza=[];
+  for(const [sk] of SINTOMI){
+    if(attiviOggi.has(sk)) continue;               // ancora presente: non è convalescenza
+    for(let i=1;i<=N;i++){
+      const d=spostaGiorni(dataInModifica,-i);
+      const vd=voci[d];
+      if(vd&&(vd.sintomi||[]).includes(sk)){ inConvalescenza.push([nomi[sk],i]); break; }
+    }
+  }
+  if(inConvalescenza.length===0) return "";
+  const lista=inConvalescenza.map(([n,g])=>`${n} (sparito ${g} giorn${g===1?"o":"i"} fa)`).join(", ");
+  return `<div class="banner" style="background:var(--verde-chiaro);color:var(--testo);border:1px solid var(--verde)">
+    🩹 <b>Convalescenza</b>: ${lista}. Per qualche giorno vale la pena stare più a bacchetta e fare attenzione: un fastidio residuo o una piccola ricaduta sono normali, ma segnali che tornano vanno annotati bene.</div>`;
+}
+
 /* ============ COSTANTI ============ */
 const UMORE_EMOJI=["😞","😕","😐","🙂","😄"];
 const STRESS_EMOJI=["😌","🙂","😐","😣","🤯"];
 const SONNO_EMOJI=["😫","😩","😐","😊","😴"];
+const TEMP_EMOJI=["🥶","❄️","😐","☀️","🥵"];
+const TEMP_ETI=["Molto freddo","Freddo","Normale","Caldo","Molto caldo"];
+function tempTesto(n){ if(n==null) return ""; return (n>=1&&n<=5)?TEMP_ETI[n-1]:(n+"°C"); }
 const PASTI=[["colazione","🍞 Colazione"],["pranzo","🍝 Pranzo"],["cena","🍲 Cena"],["merenda","🍎 Merende"]];
 const QUANTITA=[["saltato","Saltato"],["poco","Poco"],["normale","Normale"],["belPo","Un bel po'"],["troppo","Troppo"]];
 const SOLE=[["zero","🚫 Niente"],["q15","Meno di 15 min"],["q30","15-30 min"],["q30p","Più di 30 min"]];
@@ -403,10 +433,8 @@ function vai(v){
 }
 function mostraChrome(mostra){
   const nav=document.querySelector(".nav");
-  const sel=document.getElementById("selettore-profilo");
   const streak=document.getElementById("streak");
   if(nav) nav.style.display = mostra?"":"none";
-  if(sel) sel.style.display = mostra?"":"none";
   if(streak) streak.style.display = mostra?"":"none";
 }
 function render(){
@@ -437,8 +465,6 @@ function schermataAccesso(){
     </div>` + cartaCloud();
 }
 function aggiornaProfiliUI(){
-  const sel=document.getElementById("selettore-profilo");
-  sel.innerHTML=S.profili.map(p=>`<option value="${p.id}" ${p.id===S.profiloCorrente?"selected":""}>👤 ${p.nome}</option>`).join("");
   document.getElementById("streak").textContent="🔥 "+calcolaStreak();
 }
 function cambiaProfilo(id){ S.profiloCorrente=id; localStorage.setItem(CHIAVE, JSON.stringify(S)); dataInModifica=oggi(); render(); }
@@ -491,6 +517,12 @@ function vistaOggi(){
     h+=`<div class="banner banner-verde">✍️ Stai compilando un giorno passato.
       <button class="btn btn-piccolo" style="margin-left:8px" onclick="dataInModifica=oggi();render()">Torna a oggi</button></div>`;
   }
+  h+=bannerConvalescenza();
+  {
+    const nRic=ricorrentiSenzaRisposta(dataInModifica);
+    if(nRic>0) h+=`<div class="banner" style="background:var(--arancio);color:#3a1e00">
+      💊 Hai ${nRic} tra farmaci e trattamenti ricorrenti ${eOggi?"per oggi":"in questo giorno"}: più in basso segna se li hai <b>presi/fatti</b> o <b>saltati</b>.</div>`;
+  }
   h+=`<div class="riga-data">
     <button class="btn btn-freccia" onclick="dataInModifica=spostaGiorni(dataInModifica,-1);render()">‹</button>
     <div class="titolo-data">${dataBella(dataInModifica)}</div>
@@ -538,9 +570,7 @@ function vistaOggi(){
 
   // Corpo e ambiente
   if(traccia('corpoAmbiente')) h+=`<div class="card"><h2>🌤️ Corpo e ambiente</h2>
-    <div class="toggle-riga"><span>🌡️ Temperatura di oggi (°C)</span>
-      <input type="number" inputmode="decimal" style="width:90px;font-size:1.1rem;padding:8px;border:2px solid var(--bordo);border-radius:12px;text-align:center"
-        value="${v.temperatura!=null?v.temperatura:""}" placeholder="°C" onchange="impostaTemperatura(this.value)"></div>
+    <div class="sezione-scala"><div class="nome-scala">🌡️ Che temperatura ha fatto oggi?</div>${scala("temperatura",v.temperatura,TEMP_EMOJI,["Molto freddo","Molto caldo"])}</div>
     <div class="sezione-scala"><div class="nome-scala">🥱 Stanchezza</div>${scala("stanchezza",v.stanchezza,null,["Pieno di energie","Esausto"])}</div>
     <div class="sezione-scala"><div class="nome-scala">💤 Sonnolenza durante il giorno</div>${scala("sonnolenza",v.sonnolenza,null,["Sveglissimo","Crollavo"])}</div>
     <div class="nome-scala" style="font-weight:700;margin-bottom:8px">☀️ Sole preso oggi</div>
@@ -572,7 +602,7 @@ function vistaOggi(){
       <div class="sotto" style="text-align:center">${msgAcqua}</div>
       <div class="toggle-riga" style="margin-top:8px"><span>🎯 Obiettivo giornaliero</span>
         <span><input type="number" min="1" max="30" value="${obiettivo}" style="width:70px;text-align:center" onchange="impostaObiettivoAcqua(this.value)"> bicchieri</span></div>
-      <div class="sotto">Circa ${(obiettivo*0.25).toFixed(1).replace(".",",")} litri. Il fabbisogno varia da persona a persona: regolalo in base alle tue condizioni (vale per questo profilo).</div>`;
+      <div class="sotto">Circa ${(obiettivo*0.25).toFixed(1).replace(".",",")} litri. Il fabbisogno varia da persona a persona: regolalo in base alle tue condizioni.</div>`;
 
     if(traccia('urina')) h+=`
       <div class="nome-scala" style="${sepStile}">🚻 Colore dell'urina</div>
@@ -634,8 +664,8 @@ function vistaOggi(){
     const sugg=suggerimentiSintomo(sk);
     h+=`<div class="voce-attivita">
       <label class="sotto" style="display:block;margin-bottom:4px;font-weight:700">${sn}</label>
-      <input type="text" list="ds-${sk}" value="${esc(tipo)}" placeholder="Che tipo? (facoltativo, es. ${esc(sugg[0]||"…")})" onkeydown="if(event.key==='Enter')this.blur()" onchange="impostaTipoSintomo('${sk}',this.value)" style="width:100%;margin-bottom:8px">
-      <datalist id="ds-${sk}">${sugg.map(s=>`<option value="${esc(s)}"></option>`).join("")}</datalist>
+      <input type="text" value="${esc(tipo)}" placeholder="Che tipo? (facoltativo, es. ${esc(sugg[0]||"…")})" onkeydown="if(event.key==='Enter')this.blur()" onchange="impostaTipoSintomo('${sk}',this.value)" style="width:100%;margin-bottom:8px">
+      ${chipsSuggSint(sk,sugg,tipo)}
       <div class="riga-intensita" style="margin:0">
         <span class="etichetta-int">Intensità</span>
         <input type="range" min="1" max="10" value="${val||5}" oninput="mostraValInt(this)" onchange="impostaIntensita('${sk}',this.value)">
@@ -676,14 +706,13 @@ function vistaOggi(){
       <label class="sotto" style="display:block;margin-bottom:4px;font-weight:700">${an} <span style="opacity:.7;font-weight:400">— dettagli facoltativi</span></label>`;
     entries.forEach((e,idx)=>{
       h+=`<div class="voce-attivita"><div class="riga1">
-        <input type="text" list="dl-${ak}" value="${esc(e.n)}" placeholder="Tipo/nome" onkeydown="if(event.key==='Enter')this.blur()" onchange="impostaVoceAttivita('${ak}',${idx},'n',this.value)">
+        <input type="text" value="${esc(e.n)}" placeholder="Tipo/nome" onkeydown="if(event.key==='Enter')this.blur()" onchange="impostaVoceAttivita('${ak}',${idx},'n',this.value)">
         <input type="number" min="0" inputmode="numeric" value="${(e.d!==''&&e.d!=null)?e.d:''}" placeholder="min" title="Durata in minuti" onchange="impostaVoceAttivita('${ak}',${idx},'d',this.value)">
         <input type="time" value="${e.o||''}" title="Orario" onchange="impostaVoceAttivita('${ak}',${idx},'o',this.value)">
         <button class="btn btn-piccolo" onclick="eliminaVoceAttivita('${ak}',${idx})" title="Rimuovi">🗑️</button>
-      </div></div>`;
+      </div>${chipsSuggAtt(ak,idx,sugg,e.n)}</div>`;
     });
-    h+=`<datalist id="dl-${ak}">${sugg.map(s=>`<option value="${esc(s)}"></option>`).join("")}</datalist>
-      <button class="chip btn-piccolo" style="margin-top:8px" onclick="aggiungiVoceAttivita('${ak}')">➕ Aggiungi ${nomePulito}</button>
+    h+=`<button class="chip btn-piccolo" style="margin-top:8px" onclick="aggiungiVoceAttivita('${ak}')">➕ Aggiungi ${nomePulito}</button>
     </div>`;
   }
   h+=`</div>`;
@@ -698,8 +727,9 @@ function vistaOggi(){
     const nG=sp.notizie.filter(x=>x.data===dataInModifica);
     h+=`<div class="card"><h2>💊 Sanità in questo giorno</h2>`;
     if(fAtt.length===0&&tAtt.length===0&&vG.length===0&&nG.length===0) h+=`<div class="sotto" style="margin-top:0">Nessun farmaco, trattamento, visita o notizia registrata per questo giorno.</div>`;
-    for(const f of fAtt) h+=`<div class="elemento-lista">💊 <b>${esc(f.nome)}</b> ${f.dose?"— "+esc(f.dose):""} <span class="sotto" style="display:inline">(in corso)</span></div>`;
-    for(const t of tAtt) h+=`<div class="elemento-lista">🧑‍⚕️ <b>${esc(t.nome)}</b> ${t.dett?"— "+esc(t.dett):""} <span class="sotto" style="display:inline">(in corso)</span></div>`;
+    if(fAtt.length>0||tAtt.length>0) h+=`<div class="sotto" style="margin-top:0;margin-bottom:8px">Hai preso/fatto quello di oggi? Segna anche se hai <b>saltato</b>: serve all'analisi.</div>`;
+    for(const f of fAtt) h+=rigaAderenza(f.id,"💊",f.nome,f.dose,"Preso");
+    for(const t of tAtt) h+=rigaAderenza(t.id,"🧑‍⚕️",t.nome,t.dett,"Fatto");
     for(const x of vG) h+=`<div class="elemento-lista">🩺 <b>${esc(x.testo)}</b>${x.invasivo?' <span class="badge" style="background:var(--rosso)">invasivo</span>':""}</div>`;
     for(const x of nG) h+=`<div class="elemento-lista">${x.tipo==="buona"?"📬✨":"📬⛈️"} ${esc(x.testo)}</div>`;
     h+=`<button class="chip" style="margin-top:6px" onclick="saluteRitorno=dataInModifica;vai('salute')">➕ Gestisci farmaci, visite e notizie</button></div>`;
@@ -760,6 +790,20 @@ function eliminaVoceAttivita(ak, idx){
   v.attivitaDett[ak].splice(idx,1);
   v.agg=Date.now(); salva(); render();
 }
+function chipsSuggSint(sk, sugg, corrente){
+  const cur=String(corrente||"").toLowerCase();
+  const items=(sugg||[]).filter(s=>s.toLowerCase()!==cur).slice(0,8);
+  if(!items.length) return "";
+  return `<div class="chips-sugg">`+items.map(s=>`<button type="button" class="chip chip-sugg" onclick="applicaSuggSint('${sk}',this.textContent)">${esc(s)}</button>`).join("")+`</div>`;
+}
+function chipsSuggAtt(ak, idx, sugg, corrente){
+  const cur=String(corrente||"").toLowerCase();
+  const items=(sugg||[]).filter(s=>s.toLowerCase()!==cur).slice(0,8);
+  if(!items.length) return "";
+  return `<div class="chips-sugg">`+items.map(s=>`<button type="button" class="chip chip-sugg" onclick="applicaSuggAtt('${ak}',${idx},this.textContent)">${esc(s)}</button>`).join("")+`</div>`;
+}
+function applicaSuggSint(sk,val){ impostaTipoSintomo(sk,val); }
+function applicaSuggAtt(ak,idx,val){ impostaVoceAttivita(ak,idx,'n',val); }
 function suggerimentiTipo(ak){
   const voci=vociProfilo();
   const conta={};
@@ -791,6 +835,33 @@ function impostaPesoDiretto(val){
   v.peso=isNaN(n)?null:Math.round(n*10)/10;
   v.agg=Date.now();
   salva(); render();
+}
+function rigaAderenza(id, emoji, nome, dett, verboFatto){
+  const v=voce(dataInModifica);
+  const st=(v.aderenza&&v.aderenza[id])||"";
+  return `<div class="elemento-lista" style="display:block">
+    <div>${emoji} <b>${esc(nome)}</b> ${dett?"— "+esc(dett):""}</div>
+    <div class="chips" style="margin-top:6px">
+      <button class="chip ${st==="preso"?"attivo-verde":""}" onclick="impostaAderenza('${id}','preso')">✅ ${verboFatto}</button>
+      <button class="chip ${st==="saltato"?"attivo":""}" onclick="impostaAderenza('${id}','saltato')">⛔ Saltato</button>
+    </div></div>`;
+}
+function impostaAderenza(id, stato){
+  const v=voce(dataInModifica);
+  if(!v.aderenza) v.aderenza={};
+  if(v.aderenza[id]===stato) delete v.aderenza[id]; else v.aderenza[id]=stato;
+  v.agg=Date.now();
+  salva(); render();
+}
+function ricorrentiSenzaRisposta(d){
+  const sp=saluteProfilo();
+  const attivi=[
+    ...sp.farmaci.filter(f=>d>=f.dal&&(!f.al||d<=f.al)),
+    ...sp.trattamenti.filter(t=>d>=t.dal&&(!t.al||d<=t.al))
+  ];
+  const v=vociProfilo()[d];
+  const risp=(v&&v.aderenza)||{};
+  return attivi.filter(x=>!risp[x.id]).length;
 }
 function impostaTemperatura(val){
   const v=voce(dataInModifica);
@@ -964,7 +1035,7 @@ function mostraRiepilogo(iso){
     corpo+=rieRiga("Sogni", v.sogni?esc(v.sogni):"");
     corpo+=rieRiga("Incubi", v.incubi?("Sì"+(v.notaIncubi?` — ${esc(v.notaIncubi)}`:"")):"");
     corpo+=rieRiga("Peso", v.peso!=null?v.peso+" kg":"");
-    corpo+=rieRiga("Temperatura", v.temperatura!=null?v.temperatura+" °C":"");
+    corpo+=rieRiga("Temperatura", tempTesto(v.temperatura));
     corpo+=rieRiga("Acqua", v.acqua?v.acqua+" bicchieri":"");
     corpo+=rieRiga("Urina", v.urina?nomiUr[v.urina]:"");
     corpo+=rieRiga("Scariche", v.scariche!=null?v.scariche+"×":"");
@@ -1234,7 +1305,7 @@ function disegnaGrafico(){
     return;
   }
   let min=Math.min(...valori.map(p=>p.val)), max=Math.max(...valori.map(p=>p.val));
-  if(graficoScelto!=="peso" && graficoScelto!=="temperatura" && graficoScelto!=="acqua"){ min=1; max=5; }
+  if(graficoScelto!=="peso" && graficoScelto!=="acqua"){ min=1; max=5; }
   if(graficoScelto==="acqua"){ min=0; max=Math.max(obiettivoAcqua(), max); }
   if(min===max){ min-=1; max+=1; }
   const x=i=>pad+(W-pad-10)*(i/29);
@@ -1278,8 +1349,8 @@ const FATTORI=[
   ["riposo","riposo o trattamenti (sauna, vacanza)", v=>(v.attivita||[]).includes("sauna")||(v.attivita||[]).includes("vacanza"), true],
   ["abbondante","aver mangiato abbondante", v=>Object.values(v.pasti||{}).some(p=>p&&(p.q==="belPo"||p.q==="troppo"))],
   ["pocoSole","poco sole preso", v=>v.sole!=null&&!soleSufficiente(v)],
-  ["caldo","una giornata molto calda (≥28°C)", v=>v.temperatura!=null&&v.temperatura>=28],
-  ["gelo","una giornata molto fredda (≤5°C)", v=>v.temperatura!=null&&v.temperatura<=5],
+  ["caldo","una giornata molto calda", v=>v.temperatura!=null&&v.temperatura>=4],
+  ["gelo","una giornata molto fredda", v=>v.temperatura!=null&&v.temperatura<=2],
   ["pocaAcqua","aver bevuto poca acqua", v=>v.acqua!=null&&v.acqua<=Math.max(3,Math.round(obiettivoAcqua()/2))],
   ["urinaScura","urina scura (disidratazione)", v=>v.urina==="u4"||v.urina==="u5"||v.urina==="u6"],
 ];
@@ -1594,17 +1665,7 @@ function eliminaElemento(lista, id){
 
 /* ============ VISTA IMPOSTAZIONI ============ */
 function vistaImpostazioni(){
-  let h=`<div class="card"><h2>👤 Profili</h2>`;
-  for(const p of S.profili){
-    h+=`<div class="riga-profilo"><span style="font-weight:${p.id===S.profiloCorrente?"700":"400"}">${p.id===S.profiloCorrente?"✓ ":""}${p.nome}</span>
-      <span>
-        <button class="btn btn-piccolo" onclick="rinominaProfilo('${p.id}')">✏️</button>
-        ${S.profili.length>1?`<button class="btn btn-piccolo" onclick="eliminaProfilo('${p.id}')">🗑️</button>`:""}
-      </span></div>`;
-  }
-  h+=`<div style="margin-top:12px"><button class="btn btn-verde" onclick="aggiungiProfilo()">➕ Aggiungi persona</button></div>
-    <div class="sotto">Ogni persona ha il suo diario separato. Cambia persona dal menu in alto.</div></div>`;
-
+  let h="";
   const tema=(S.impostazioni&&S.impostazioni.tema)||"auto";
   h+=`<div class="card"><h2>🎨 Aspetto</h2>
     <div class="nome-scala" style="font-weight:700;margin-bottom:8px">Modalità scura</div>
@@ -1621,6 +1682,11 @@ function vistaImpostazioni(){
     <button class="btn" onclick="attivaNotifiche()">Attiva le notifiche</button>
     <div class="sotto">Le notifiche funzionano quando l'app è aperta nel browser. All'apertura, l'app ti mostra sempre i giorni da recuperare.</div></div>`;
 
+  h+=`<div class="card"><h2>🩹 Convalescenza</h2>
+    <div class="toggle-riga"><span>Fai attenzione fino a</span>
+      <span><input type="number" min="0" max="14" value="${giorniConvalescenza()}" style="width:70px;text-align:center" onchange="impostaConvalescenza(this.value)"> giorni dopo</span></div>
+    <div class="sotto">Dopo che un disturbo sparisce, per questi giorni l'app ti ricorda di stare più attento: sintomi residui o piccole ricadute sono normali in convalescenza. Metti 0 per disattivare.</div></div>`;
+
   // COSA TRACCIARE
   h+=`<div class="card"><h2>🎚️ Cosa vuoi tracciare</h2>
     <div class="sotto" style="margin-top:0;margin-bottom:6px">Attiva solo ciò che ti interessa. <b>Più cose tracci = più dettaglio e analisi accurate, ma più tempo da dedicare ogni giorno.</b> Meno cose = compili in pochi secondi.</div>`;
@@ -1634,7 +1700,7 @@ function vistaImpostazioni(){
   {
     const dDef=oggi(), dInizio=spostaGiorni(oggi(),-29);
     h+=`<div class="card"><h2>📄 Resoconto per il medico</h2>
-      <div class="sotto" style="margin-top:0;margin-bottom:8px">Genera un riepilogo stampabile (salvabile in PDF) di tutti i dati del profilo <b>${esc(nomeProfiloCorrente())}</b> in un periodo scelto: sintomi, farmaci, sonno, segnali del corpo, medie e note.</div>
+      <div class="sotto" style="margin-top:0;margin-bottom:8px">Genera un riepilogo stampabile (salvabile in PDF) di tutti i tuoi dati in un periodo scelto: sintomi, farmaci, sonno, segnali del corpo, medie e note.</div>
       <div class="form-riga">
         <label style="flex:1;min-width:130px">Dal<br><input type="date" id="rep-dal" value="${dInizio}" max="${dDef}"></label>
         <label style="flex:1;min-width:130px">Al<br><input type="date" id="rep-al" value="${dDef}" max="${dDef}"></label>
@@ -1706,10 +1772,15 @@ function importa(input){
   r.readAsText(f);
 }
 function cancellaTutto(){
-  if(!confirm("Cancellare DAVVERO tutti i dati di tutte le persone?")) return;
+  if(!confirm("Cancellare DAVVERO tutti i tuoi dati?")) return;
   if(!confirm("Ultima conferma: i dati andranno persi per sempre (a meno che tu non abbia un backup).")) return;
   localStorage.removeItem(CHIAVE);
   S=carica(); render();
+}
+function impostaConvalescenza(val){
+  const n=parseInt(val,10);
+  S.impostazioni.giorniConvalescenza=isNaN(n)?3:Math.max(0,Math.min(14,n));
+  salva();
 }
 function impostaTraccia(k, on){
   if(!S.impostazioni.traccia) S.impostazioni.traccia={};
@@ -1717,6 +1788,7 @@ function impostaTraccia(k, on){
   salva();
 }
 function nomeProfiloCorrente(){
+  if(utente&&utente.email) return utente.email;
   const p=S.profili.find(p=>p.id===S.profiloCorrente);
   return p?p.nome:"—";
 }
@@ -1759,7 +1831,7 @@ function generaResoconto(){
     if(v.incubi) parti.push(`Incubi${v.notaIncubi?" ("+esc(v.notaIncubi)+")":""}`);
     if(v.sogni) parti.push(`Sogni: ${esc(v.sogni)}`);
     if(v.peso!=null) parti.push(`Peso ${v.peso} kg`);
-    if(v.temperatura!=null) parti.push(`Temp. ${v.temperatura}°C`);
+    if(v.temperatura!=null) parti.push(`Temp. ${tempTesto(v.temperatura)}`);
     if(v.acqua!=null) parti.push(`Acqua ${v.acqua} bicch.`);
     if(v.urina) parti.push(`Urina: ${nomiUr[v.urina]}`);
     if(v.scariche!=null) parti.push(`Scariche ${v.scariche}×`);
@@ -1893,9 +1965,11 @@ let supaCfg=null;
 if(CLOUD_FISSO){ supaCfg={url:CLOUD_URL, key:CLOUD_KEY}; }
 else { try{ supaCfg=JSON.parse(localStorage.getItem(SUPA_CHIAVE)||"null"); }catch(e){} }
 let supa=null, utente=null, statoSync="", mostraConfigCloud=false;
+let ricordami = localStorage.getItem("fyg_ricordami")!=="0";   // default: sì
+function storageAuth(){ return ricordami ? window.localStorage : window.sessionStorage; }
 
 function cartaCloud(){
-  let h=`<div class="card"><h2>☁️ Cloud e accesso</h2>`;
+  let h=`<div class="card"><h2>🔑 Login</h2>`;
   if(!CLOUD_FISSO && (!supaCfg || mostraConfigCloud)){
     h+=`<p style="margin-top:0">Collega un progetto <b>Supabase</b> (gratuito) per salvare i dati nel cloud e usarli da più dispositivi con un login.</p>
       <div class="form-riga"><input type="text" id="su-url" placeholder="URL del progetto (https://xxxx.supabase.co)" value="${supaCfg?esc(supaCfg.url):""}"></div>
@@ -1923,23 +1997,23 @@ create policy "solo i propri dati" on diario
         <div class="sotto">Trovi la stessa guida nel file SUPABASE.md accanto all'app.</div>
       </div>`;
   } else if(!utente){
-    h+=`<p style="margin-top:0">Accedi per sincronizzare i tuoi dati nel cloud.</p>
+    h+=`<p style="margin-top:0">Entra con email e password. Se non hai un account, registrati una volta sola.</p>
       <div class="form-riga"><input type="email" id="au-email" placeholder="La tua email" autocomplete="email"></div>
       <div class="form-riga"><input type="password" id="au-pw" placeholder="Password (min 6 caratteri)" autocomplete="current-password" onkeydown="if(event.key==='Enter')accedi()"></div>
+      <label class="toggle-riga" style="cursor:pointer"><span>💾 Ricordami su questo dispositivo</span>
+        <label class="interruttore"><input type="checkbox" id="au-ricorda" ${ricordami?"checked":""}><span class="slider"></span></label></label>
       <div style="display:flex; gap:10px; flex-wrap:wrap">
         <button class="btn btn-verde" onclick="accedi()">🔑 Accedi</button>
         <button class="btn" onclick="registrati()">✍️ Registrati</button>
         <button class="btn btn-piccolo" onclick="recuperaPassword()">Password dimenticata</button>
       </div>
-      <div class="stato-sync">${statoSync}</div>
-      ${CLOUD_FISSO?"":`<button class="dettagli-btn" onclick="mostraConfigCloud=true;render()">⚙️ Modifica configurazione Supabase</button>`}`;
+      <div class="stato-sync">${statoSync}</div>`;
   } else {
-    h+=`<p style="margin-top:0">✅ Connesso come <b>${esc(utente.email)}</b></p>
+    h+=`<p style="margin-top:0">✅ Accesso come <b>${esc(utente.email)}</b></p>
       <div style="display:flex; gap:10px; flex-wrap:wrap">
-        <button class="btn btn-verde" onclick="sincronizza()">🔄 Sincronizza ora</button>
         <button class="btn" onclick="esci()">🚪 Esci</button>
       </div>
-      <div class="stato-sync">${statoSync||"I dati si sincronizzano da soli dopo ogni modifica."}</div>`;
+      <div class="stato-sync">${statoSync}</div>`;
   }
   h+=`</div>`;
   return h;
@@ -1966,7 +2040,7 @@ function initSupabase(){
 }
 function creaClientSupa(){
   try{
-    supa=window.supabase.createClient(supaCfg.url, supaCfg.key);
+    supa=window.supabase.createClient(supaCfg.url, supaCfg.key, {auth:{persistSession:true, autoRefreshToken:true, storage:storageAuth()}});
     supa.auth.getSession().then(({data})=>{
       utente=data.session?data.session.user:null;
       authPronto=true;
@@ -1977,15 +2051,24 @@ function creaClientSupa(){
   }catch(e){ statoSync="⚠️ Configurazione non valida: controlla URL e chiave."; authPronto=true; render(); }
 }
 async function registrati(){
-  if(!supa){ alert("Prima configura Supabase."); return; }
+  if(!supa){ alert("Servizio non disponibile: riprova online."); return; }
+  aggiornaRicordami();
   const email=valore("au-email"), password=valore("au-pw");
   if(!email||password.length<6){ alert("Inserisci email e una password di almeno 6 caratteri."); return; }
   const {error}=await supa.auth.signUp({email,password});
   if(error){ alert("Errore: "+error.message); return; }
   alert("Registrazione inviata! Controlla la tua email e conferma il link, poi torna qui e premi Accedi.");
 }
+function aggiornaRicordami(){
+  const rc=document.getElementById("au-ricorda");
+  const nuovo = rc ? rc.checked : ricordami;
+  if(nuovo!==ricordami){ ricordami=nuovo; localStorage.setItem("fyg_ricordami", ricordami?"1":"0");
+    if(window.supabase&&supaCfg) creaClientSupa(); }
+  else { ricordami=nuovo; localStorage.setItem("fyg_ricordami", ricordami?"1":"0"); }
+}
 async function accedi(){
-  if(!supa){ alert("Prima configura Supabase."); return; }
+  if(!supa){ alert("Servizio non disponibile: riprova online."); return; }
+  aggiornaRicordami();
   const email=valore("au-email"), password=valore("au-pw");
   const {data,error}=await supa.auth.signInWithPassword({email,password});
   if(error){ alert("Accesso non riuscito: "+error.message); return; }
@@ -1999,7 +2082,7 @@ async function esci(){
   utente=null; statoSync=""; render();
 }
 async function recuperaPassword(){
-  if(!supa){ alert("Prima configura Supabase."); return; }
+  if(!supa){ alert("Servizio non disponibile: riprova online."); return; }
   const email=valore("au-email");
   if(!email){ alert("Scrivi la tua email nel campo, poi ripremi."); return; }
   const {error}=await supa.auth.resetPasswordForEmail(email);
