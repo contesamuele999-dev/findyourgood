@@ -5,26 +5,37 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <meta name="theme-color" content="#2e7d6b">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Find Your Good</title><!-- v2 -->
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="manifest" href="manifest.json">
+<title>Find Your Good</title><!-- v3 -->
 <style>
 :root{
   --verde:#2e7d6b; --verde-chiaro:#e3f2ee; --crema:#faf7f2; --testo:#2b2b2b;
   --grigio:#8a8a8a; --rosso:#c65b4e; --rosso-chiaro:#fdeae7; --giallo:#f2b950;
   --card:#ffffff; --bordo:#e6e1d8; --blu:#4a7fa5; --input:#ffffff; --ombra:rgba(0,0,0,.05);
+  --info:#edf3f8; --arancio:#e67e22; --switch-off:#cccccc;
+  color-scheme:light;
 }
 /* Tema scuro: applicato automaticamente col sistema (se non forzato "chiaro"), o forzato "scuro" */
 @media (prefers-color-scheme: dark){
   :root:not([data-tema="chiaro"]){
-    --verde:#4db6a0; --verde-chiaro:#1e3d37; --crema:#15171a; --testo:#e8e6e1;
-    --grigio:#9a9a9a; --rosso:#e07568; --rosso-chiaro:#3d2320; --giallo:#e0a838;
-    --card:#1f2225; --bordo:#33373b; --blu:#6fa3c7; --input:#26292d; --ombra:rgba(0,0,0,.4);
+    --verde:#5ec4ae; --verde-chiaro:#1f463e; --crema:#141619; --testo:#eceae4;
+    --grigio:#a6a6a6; --rosso:#ef8175; --rosso-chiaro:#432723; --giallo:#e6b04a;
+    --card:#1e2124; --bordo:#3a3f44; --blu:#7fb0d1; --input:#282c30; --ombra:rgba(0,0,0,.45);
+    --info:#18303b; --arancio:#f0955f; --switch-off:#5a5f64;
+    color-scheme:dark;
   }
 }
 :root[data-tema="scuro"]{
-  --verde:#4db6a0; --verde-chiaro:#1e3d37; --crema:#15171a; --testo:#e8e6e1;
-  --grigio:#9a9a9a; --rosso:#e07568; --rosso-chiaro:#3d2320; --giallo:#e0a838;
-  --card:#1f2225; --bordo:#33373b; --blu:#6fa3c7; --input:#26292d; --ombra:rgba(0,0,0,.4);
+  --verde:#5ec4ae; --verde-chiaro:#1f463e; --crema:#141619; --testo:#eceae4;
+  --grigio:#a6a6a6; --rosso:#ef8175; --rosso-chiaro:#432723; --giallo:#e6b04a;
+  --card:#1e2124; --bordo:#3a3f44; --blu:#7fb0d1; --input:#282c30; --ombra:rgba(0,0,0,.45);
+  --info:#18303b; --arancio:#f0955f; --switch-off:#5a5f64;
+  color-scheme:dark;
 }
+:root[data-tema="chiaro"]{ color-scheme:light; }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html,body{margin:0; padding:0; background:var(--crema); color:var(--testo);
   font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; font-size:18px;}
@@ -70,7 +81,7 @@ h2{font-size:1.15rem; margin:0 0 10px 0; color:var(--verde);}
 .toggle-riga{display:flex; align-items:center; justify-content:space-between; padding:10px 0;}
 .interruttore{position:relative; width:58px; height:32px; flex-shrink:0;}
 .interruttore input{opacity:0; width:0; height:0;}
-.slider{position:absolute; inset:0; background:#ccc; border-radius:999px; transition:.2s; cursor:pointer;}
+.slider{position:absolute; inset:0; background:var(--switch-off); border-radius:999px; transition:.2s; cursor:pointer;}
 .slider:before{content:""; position:absolute; height:26px; width:26px; left:3px; top:3px;
   background:#fff; border-radius:50%; transition:.2s;}
 input:checked + .slider{background:var(--verde);}
@@ -127,7 +138,7 @@ canvas{width:100%; height:220px;}
 .punti-giorno{display:flex; gap:3px; justify-content:center; position:absolute; bottom:4px; left:0; right:0;}
 .punto{width:6px; height:6px; border-radius:50%; display:inline-block;}
 .previsione{border-radius:14px; padding:14px; margin-bottom:10px; font-size:1rem;}
-.consiglio{border-left:5px solid var(--blu); background:#edf3f8; border-radius:0 12px 12px 0; padding:12px; margin-bottom:10px; font-size:.98rem;}
+.consiglio{border-left:5px solid var(--blu); background:var(--info); border-radius:0 12px 12px 0; padding:12px; margin-bottom:10px; font-size:.98rem;}
 .stat-griglia{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
 .stat-box{background:var(--verde-chiaro); border-radius:12px; padding:12px; text-align:center;}
 .stat-box .numero{font-size:1.35rem; font-weight:800; color:var(--verde);}
@@ -141,7 +152,27 @@ canvas{width:100%; height:220px;}
 .barra-acqua > div{background:var(--blu); height:100%; transition:width .2s;}
 .tipo-attivita{margin-top:10px;}
 .tipo-attivita input{width:100%; padding:10px; font-size:1rem; border:2px solid var(--bordo); border-radius:12px; font-family:inherit; background:var(--input); color:var(--testo);}
-pre.sql{background:#f0ede6; border-radius:12px; padding:12px; font-size:.75rem; overflow-x:auto; white-space:pre-wrap;}
+pre.sql{background:var(--input); border-radius:12px; padding:12px; font-size:.75rem; overflow-x:auto; white-space:pre-wrap;}
+/* Selettori orario/data uniformi (anche in tema scuro) */
+input[type=time],input[type=date]{border:2px solid var(--bordo); border-radius:12px; padding:8px 10px; font-size:1rem; font-family:inherit; background:var(--input); color:var(--testo); min-height:44px;}
+/* Slider intensità disturbi */
+.riga-intensita{display:flex; align-items:center; gap:10px; margin:8px 0;}
+.riga-intensita .etichetta-int{flex:1; font-size:.95rem;}
+.riga-intensita input[type=range]{flex:1.4; accent-color:var(--rosso); height:26px;}
+.riga-intensita .val-int{min-width:44px; text-align:right; font-weight:800; color:var(--rosso);}
+/* Modale riepilogo giorno */
+.modale-overlay{position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:60; display:flex; align-items:flex-end; justify-content:center;}
+.modale{background:var(--card); width:100%; max-width:640px; max-height:86vh; overflow:auto; border-radius:22px 22px 0 0; padding:18px; box-shadow:0 -4px 20px rgba(0,0,0,.3);}
+.modale .maniglia{width:44px; height:5px; border-radius:999px; background:var(--bordo); margin:0 auto 12px;}
+.modale h2{margin-bottom:12px;}
+.rie-riga{display:flex; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid var(--bordo); font-size:1rem;}
+.rie-riga .et{color:var(--grigio);}
+.rie-riga .vl{font-weight:600; text-align:right;}
+.durata-input{width:80px; text-align:center;}
+.voce-attivita{border:1px solid var(--bordo); border-radius:12px; padding:10px; margin-top:8px; background:var(--input);}
+.voce-attivita .riga1{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+.voce-attivita input[type=text]{flex:1; min-width:120px; padding:8px 10px; font-size:1rem; border:2px solid var(--bordo); border-radius:10px; background:var(--card); color:var(--testo); font-family:inherit;}
+.voce-attivita input[type=number]{width:78px; padding:8px; font-size:1rem; border:2px solid var(--bordo); border-radius:10px; background:var(--card); color:var(--testo); text-align:center; font-family:inherit;}
 </style>
 </head>
 <body>
@@ -165,6 +196,7 @@ pre.sql{background:#f0ede6; border-radius:12px; padding:12px; font-size:.75rem; 
 </div>
 
 <div class="toast" id="toast">Salvato ✓</div>
+<div id="modale"></div>
 
 <script>
 "use strict";
@@ -174,6 +206,11 @@ let S = carica();
 let vista = "oggi";
 let dataInModifica = oggi();
 let meseDiario = oggi().slice(0,7); // "AAAA-MM"
+let sezioniAperte = new Set();   // sezioni espandibili aperte (persistono tra i render)
+let saluteRitorno = null;        // giorno da cui si è aperta la scheda Salute
+let authPronto = false;          // controllo sessione completato
+let promptInstall = null;        // evento per installare la PWA
+let clickTimer = null;           // per distinguere click singolo/doppio sul calendario
 
 function carica(){
   try{
@@ -239,6 +276,7 @@ function voce(data){
   if(!v[data].sintomi) v[data].sintomi=[];
   if(!v[data].attivita) v[data].attivita=[];
   if(!v[data].attivitaTipo) v[data].attivitaTipo={};
+  if(!v[data].attivitaDett) v[data].attivitaDett={};
   return v[data];
 }
 function compilato(data){
@@ -247,6 +285,7 @@ function compilato(data){
   return v.umore!=null || v.stress!=null || v.peso!=null || v.sonnoQ!=null ||
     v.temperatura!=null || v.stanchezza!=null || v.sonnolenza!=null || v.sole!=null ||
     v.acqua!=null || v.urina!=null || v.feci!=null || v.occhi!=null ||
+    v.risvegli!=null || (v.sogni&&v.sogni.trim()!=="") || v.incubi || v.oraDormire || v.oraSveglia ||
     (v.sintomi&&v.sintomi.length>0) || (v.attivita&&v.attivita.length>0) ||
     Object.keys(v.pasti||{}).length>0 || (v.note&&v.note.trim()!=="");
 }
@@ -275,8 +314,24 @@ function saluteProfilo(){
   if(!S.salute) S.salute={};
   if(!S.salute[S.profiloCorrente]) S.salute[S.profiloCorrente]={};
   const sp=S.salute[S.profiloCorrente];
-  for(const k of ["farmaci","visite","notizie","ipotesi"]) if(!sp[k]) sp[k]=[];
+  for(const k of ["farmaci","visite","notizie","ipotesi","cambiamenti"]) if(!sp[k]) sp[k]=[];
   return sp;
+}
+function registraCambiamento(data, testo, tipo){
+  saluteProfilo().cambiamenti.push({id:"c"+Date.now()+Math.floor(Math.random()*99), data, testo, tipo, agg:Date.now()});
+}
+function cambiamentiRecenti(rifIso, giorni){
+  const sp=saluteProfilo();
+  const da=spostaGiorni(rifIso, -(giorni-1));
+  return sp.cambiamenti.filter(c=>c.data && c.data<=rifIso && c.data>=da).sort((a,b)=>a.data<b.data?1:-1);
+}
+function bannerCambiamenti(){
+  const rec=cambiamentiRecenti(oggi(), 10);
+  if(rec.length===0) return "";
+  const c=rec[0];
+  return `<div class="banner" style="background:var(--arancio);color:#3a1e00">
+    🔔 <b>Cambiamento nella terapia</b> del ${c.data.slice(8,10)}/${c.data.slice(5,7)}: ${esc(c.testo)}.<br>
+    Nei prossimi giorni segna bene disturbi e come ti senti: servirà a capire se il cambiamento ti fa stare <b>meglio, peggio o uguale</b>.</div>`;
 }
 
 /* ============ COSTANTI ============ */
@@ -310,21 +365,45 @@ const ESEMPI_TIPO={
 /* ============ NAVIGAZIONE ============ */
 function vai(v){
   vista=v;
+  if(v!=="salute") saluteRitorno=null;
   if(v==="oggi") dataInModifica=oggi();
   render();
   window.scrollTo(0,0);
 }
+function mostraChrome(mostra){
+  const nav=document.querySelector(".nav");
+  const sel=document.getElementById("selettore-profilo");
+  const streak=document.getElementById("streak");
+  if(nav) nav.style.display = mostra?"":"none";
+  if(sel) sel.style.display = mostra?"":"none";
+  if(streak) streak.style.display = mostra?"":"none";
+}
 function render(){
+  const app=document.getElementById("app");
+  if(!authPronto){ mostraChrome(false); app.innerHTML=schermataCaricamento(); return; }
+  if(!utente){ mostraChrome(false); app.innerHTML=schermataAccesso(); return; }
+  mostraChrome(true);
   ["oggi","diario","analisi","salute","impostazioni"].forEach(v=>{
     document.getElementById("nav-"+v).classList.toggle("attivo", vista===v);
   });
   aggiornaProfiliUI();
-  const app=document.getElementById("app");
   if(vista==="oggi") app.innerHTML=vistaOggi();
   else if(vista==="diario") app.innerHTML=vistaDiario();
   else if(vista==="analisi"){ app.innerHTML=vistaAnalisi(); disegnaGrafico(); }
   else if(vista==="salute") app.innerHTML=vistaSalute();
   else app.innerHTML=vistaImpostazioni();
+}
+function schermataCaricamento(){
+  return `<div style="text-align:center; margin:60px 0; color:var(--grigio)">
+    <div style="font-size:3rem">🌱</div>
+    <p>Caricamento…</p></div>`;
+}
+function schermataAccesso(){
+  return `<div style="text-align:center; margin:30px 0 6px">
+      <div style="font-size:3.2rem">🌱</div>
+      <h1 style="color:var(--verde); margin:8px 0">Find Your Good</h1>
+      <p class="sotto" style="margin-top:0">Accedi con il tuo account per usare l'app e ritrovare i tuoi dati su ogni dispositivo.</p>
+    </div>` + cartaCloud();
 }
 function aggiornaProfiliUI(){
   const sel=document.getElementById("selettore-profilo");
@@ -366,6 +445,13 @@ function vistaOggi(){
   const mancanti=giorniMancanti();
   const eOggi=dataInModifica===oggi();
   let h="";
+  if(promptInstall && localStorage.getItem("fyg_install_no")!=="1"){
+    h+=`<div class="banner banner-verde" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      📲 Installa Find Your Good per aprirla come un'app.
+      <button class="btn btn-piccolo btn-verde" onclick="installaApp()">Installa</button>
+      <button class="btn btn-piccolo" onclick="nascondiInstall()">No grazie</button></div>`;
+  }
+  h+=bannerCambiamenti();
   if(eOggi && mancanti.length>0){
     h+=`<div class="banner" onclick="dataInModifica='${mancanti[mancanti.length-1]}';render();window.scrollTo(0,0);">
       ⚠️ Hai ${mancanti.length} giorn${mancanti.length===1?"o":"i"} da compilare. Tocca qui per recuperare.</div>`;
@@ -401,12 +487,21 @@ function vistaOggi(){
   // Sonno
   h+=`<div class="card"><h2>😴 Sonno (notte scorsa)</h2>
     <div class="sezione-scala"><div class="nome-scala">Com'era la qualità?</div>${scala("sonnoQ",v.sonnoQ,SONNO_EMOJI,["Pessima","Ottima"])}</div>
-    <button class="dettagli-btn" onclick="togglaSezione('dett-sonno')">🕐 Orari (facoltativo) ▾</button>
-    <div id="dett-sonno" class="${v.oraDormire||v.oraSveglia?"":"nascosto"}">
+    <button class="dettagli-btn" onclick="togglaSezione('dett-sonno')">🌙 Dettagli notte (facoltativo) ▾</button>
+    <div id="dett-sonno" class="${sezClass('dett-sonno', v.oraDormire||v.oraSveglia||v.risvegli!=null||v.sogni||v.incubi)}">
       <div class="toggle-riga"><span>Sono andato a dormire alle</span>
         <input type="time" value="${v.oraDormire||""}" onchange="imposta('oraDormire',this.value)"></div>
       <div class="toggle-riga"><span>Mi sono svegliato alle</span>
         <input type="time" value="${v.oraSveglia||""}" onchange="imposta('oraSveglia',this.value)"></div>
+      <div class="toggle-riga"><span>Quante volte ti sei svegliato?</span>
+        <input type="number" min="0" inputmode="numeric" style="width:80px" value="${v.risvegli!=null?v.risvegli:""}" placeholder="0" onchange="impostaCampoNum('risvegli',this.value)"></div>
+      <label class="sotto" style="display:block;margin:6px 0 4px">Perché ti sei svegliato? (facoltativo)</label>
+      <input type="text" value="${esc(v.motivoRisvegli)}" placeholder="Es. bagno, rumori, pensieri..." onkeydown="if(event.key==='Enter')this.blur()" onchange="imposta('motivoRisvegli',this.value)" style="width:100%;padding:10px;border:2px solid var(--bordo);border-radius:12px;background:var(--input);color:var(--testo);font-family:inherit">
+      <label class="sotto" style="display:block;margin:10px 0 4px">💭 Sogni (facoltativo)</label>
+      <input type="text" value="${esc(v.sogni)}" placeholder="Cosa hai sognato..." onkeydown="if(event.key==='Enter')this.blur()" onchange="imposta('sogni',this.value)" style="width:100%;padding:10px;border:2px solid var(--bordo);border-radius:12px;background:var(--input);color:var(--testo);font-family:inherit">
+      <div class="toggle-riga" style="margin-top:8px"><span>😱 Hai avuto incubi?</span>
+        <label class="interruttore"><input type="checkbox" ${v.incubi?"checked":""} onchange="imposta('incubi',this.checked)"><span class="slider"></span></label></div>
+      ${v.incubi?`<input type="text" value="${esc(v.notaIncubi)}" placeholder="Che incubo? (facoltativo)" onkeydown="if(event.key==='Enter')this.blur()" onchange="imposta('notaIncubi',this.value)" style="width:100%;padding:10px;border:2px solid var(--bordo);border-radius:12px;background:var(--input);color:var(--testo);font-family:inherit">`:""}
     </div>
   </div>`;
 
@@ -478,6 +573,17 @@ function vistaOggi(){
     h+=`<button class="chip ${v.sintomi.includes(sk)?"attivo":""}" onclick="togglaLista('sintomi','${sk}')">${sn}</button>`;
   }
   h+=`</div>`;
+  // Intensità dei disturbi (facoltativa)
+  for(const [sk,sn] of SINTOMI){
+    if(!v.sintomi.includes(sk)) continue;
+    const val=(v.sintomiIntensita&&v.sintomiIntensita[sk])||"";
+    h+=`<div class="riga-intensita">
+      <span class="etichetta-int">${sn}</span>
+      <input type="range" min="1" max="10" value="${val||5}" oninput="mostraValInt(this)" onchange="impostaIntensita('${sk}',this.value)">
+      <span class="val-int">${val?val+"/10":"—"}</span>
+    </div>`;
+  }
+  if(v.sintomi.length>0) h+=`<div class="sotto">Trascina per indicare quanto è forte ogni disturbo (1-10). Facoltativo.</div>`;
   if(v.sintomi.includes("ferita")){
     h+=`<div class="toggle-riga"><span>La ferita cicatrizza lentamente?</span>
       <label class="interruttore"><input type="checkbox" ${v.feritaLenta?"checked":""} onchange="imposta('feritaLenta',this.checked)"><span class="slider"></span></label></div>
@@ -496,15 +602,26 @@ function vistaOggi(){
       <label class="interruttore"><input type="checkbox" ${v.pisolinoDopoPasto?"checked":""} onchange="imposta('pisolinoDopoPasto',this.checked)"><span class="slider"></span></label></div>
     <div class="sotto">Sdraiarsi subito dopo mangiato può disturbare la digestione.</div>`;
   }
-  // Tipo/nome dell'attività (facoltativo) con suggerimenti dallo storico
+  // Dettaglio attività: aggiungi voci a volontà con tipo, durata (min) e orario
   for(const [ak,an] of ATTIVITA){
     if(!v.attivita.includes(ak)) continue;
-    const tipo=(v.attivitaTipo&&v.attivitaTipo[ak])||"";
+    if(!v.attivitaDett) v.attivitaDett={};
+    let entries=v.attivitaDett[ak];
+    if(!entries){ entries = (v.attivitaTipo&&v.attivitaTipo[ak]) ? [{n:v.attivitaTipo[ak], d:"", o:""}] : []; v.attivitaDett[ak]=entries; }
     const sugg=suggerimentiTipo(ak);
+    const nomePulito=an.replace(/^[^ ]+ /,"").toLowerCase();
     h+=`<div class="tipo-attivita">
-      <label class="sotto" style="display:block;margin-bottom:4px">${an} — che tipo? <span style="opacity:.7">(facoltativo)</span></label>
-      <input type="text" list="dl-${ak}" value="${esc(tipo)}" placeholder="Es. ${esc(sugg[0]||"scrivi qui")}" onchange="impostaTipoAttivita('${ak}',this.value)">
-      <datalist id="dl-${ak}">${sugg.map(s=>`<option value="${esc(s)}"></option>`).join("")}</datalist>
+      <label class="sotto" style="display:block;margin-bottom:4px;font-weight:700">${an} <span style="opacity:.7;font-weight:400">— dettagli facoltativi</span></label>`;
+    entries.forEach((e,idx)=>{
+      h+=`<div class="voce-attivita"><div class="riga1">
+        <input type="text" list="dl-${ak}" value="${esc(e.n)}" placeholder="Tipo/nome" onkeydown="if(event.key==='Enter')this.blur()" onchange="impostaVoceAttivita('${ak}',${idx},'n',this.value)">
+        <input type="number" min="0" inputmode="numeric" value="${(e.d!==''&&e.d!=null)?e.d:''}" placeholder="min" title="Durata in minuti" onchange="impostaVoceAttivita('${ak}',${idx},'d',this.value)">
+        <input type="time" value="${e.o||''}" title="Orario" onchange="impostaVoceAttivita('${ak}',${idx},'o',this.value)">
+        <button class="btn btn-piccolo" onclick="eliminaVoceAttivita('${ak}',${idx})" title="Rimuovi">🗑️</button>
+      </div></div>`;
+    });
+    h+=`<datalist id="dl-${ak}">${sugg.map(s=>`<option value="${esc(s)}"></option>`).join("")}</datalist>
+      <button class="chip btn-piccolo" style="margin-top:8px" onclick="aggiungiVoceAttivita('${ak}')">➕ Aggiungi ${nomePulito}</button>
     </div>`;
   }
   h+=`</div>`;
@@ -520,13 +637,13 @@ function vistaOggi(){
     for(const f of fAtt) h+=`<div class="elemento-lista">💊 <b>${esc(f.nome)}</b> ${f.dose?"— "+esc(f.dose):""} <span class="sotto" style="display:inline">(in corso)</span></div>`;
     for(const x of vG) h+=`<div class="elemento-lista">🩺 <b>${esc(x.testo)}</b>${x.invasivo?' <span class="badge" style="background:var(--rosso)">invasivo</span>':""}</div>`;
     for(const x of nG) h+=`<div class="elemento-lista">${x.tipo==="buona"?"📬✨":"📬⛈️"} ${esc(x.testo)}</div>`;
-    h+=`<button class="chip" style="margin-top:6px" onclick="vai('salute')">➕ Gestisci farmaci, visite e notizie</button></div>`;
+    h+=`<button class="chip" style="margin-top:6px" onclick="saluteRitorno=dataInModifica;vai('salute')">➕ Gestisci farmaci, visite e notizie</button></div>`;
   }
 
   // Extra
   h+=`<div class="card">
     <button class="dettagli-btn" onclick="togglaSezione('dett-extra')">➕ Altri dettagli (facoltativi) ▾</button>
-    <div id="dett-extra" class="nascosto">
+    <div id="dett-extra" class="${sezClass('dett-extra')}">
       <div class="sezione-scala" style="margin-top:10px"><div class="nome-scala">Quanto sei stato fermo/seduto?</div>${scala("sedentarieta",v.sedentarieta,null,["Sempre in movimento","Tutto il giorno fermo"])}</div>
       <div class="sezione-scala"><div class="nome-scala">🪥 Lavaggi denti</div>
         <div class="tre-bottoni">
@@ -545,14 +662,31 @@ function vistaOggi(){
   </div>`;
   return h;
 }
-function togglaSezione(id){ document.getElementById(id).classList.toggle("nascosto"); }
-function impostaTipoAttivita(ak, val){
+function togglaSezione(id){
+  const el=document.getElementById(id);
+  el.classList.toggle("nascosto");
+  if(el.classList.contains("nascosto")) sezioniAperte.delete(id); else sezioniAperte.add(id);
+}
+function sezClass(id, apertaSeVero){ return (sezioniAperte.has(id) || apertaSeVero) ? "" : "nascosto"; }
+function aggiungiVoceAttivita(ak){
   const v=voce(dataInModifica);
-  if(!v.attivitaTipo) v.attivitaTipo={};
-  const t=String(val||"").trim();
-  if(t) v.attivitaTipo[ak]=t; else delete v.attivitaTipo[ak];
-  v.agg=Date.now();
-  salva();
+  if(!v.attivitaDett) v.attivitaDett={};
+  if(!v.attivitaDett[ak]) v.attivitaDett[ak]=[];
+  v.attivitaDett[ak].push({n:"", d:"", o:""});
+  v.agg=Date.now(); salva(); render();
+}
+function impostaVoceAttivita(ak, idx, campo, val){
+  const v=voce(dataInModifica);
+  if(!v.attivitaDett||!v.attivitaDett[ak]||!v.attivitaDett[ak][idx]) return;
+  if(campo==="d"){ v.attivitaDett[ak][idx].d = (val===""? "" : Math.max(0, parseInt(val,10)||0)); }
+  else { v.attivitaDett[ak][idx][campo] = val; }
+  v.agg=Date.now(); salva();
+}
+function eliminaVoceAttivita(ak, idx){
+  const v=voce(dataInModifica);
+  if(!v.attivitaDett||!v.attivitaDett[ak]) return;
+  v.attivitaDett[ak].splice(idx,1);
+  v.agg=Date.now(); salva(); render();
 }
 function suggerimentiTipo(ak){
   const voci=vociProfilo();
@@ -560,6 +694,8 @@ function suggerimentiTipo(ak){
   for(const d in voci){
     const t=voci[d].attivitaTipo && voci[d].attivitaTipo[ak];
     if(t){ const k=String(t).trim(); if(k) conta[k]=(conta[k]||0)+1; }
+    const dett=voci[d].attivitaDett && voci[d].attivitaDett[ak];
+    if(Array.isArray(dett)) for(const e of dett){ const k=(e&&e.n)?String(e.n).trim():""; if(k) conta[k]=(conta[k]||0)+1; }
   }
   const storico=Object.entries(conta).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
   const esempi=(ESEMPI_TIPO[ak]||[]).filter(e=>!storico.some(s=>s.toLowerCase()===e.toLowerCase()));
@@ -599,6 +735,25 @@ function modificaAcqua(delta){
   v.agg=Date.now();
   salva(); render();
 }
+function impostaCampoNum(campo, val){
+  const v=voce(dataInModifica);
+  const n=parseInt(val,10);
+  v[campo]=isNaN(n)?null:Math.max(0,n);
+  v.agg=Date.now();
+  salva();
+}
+function impostaIntensita(sk, val){
+  const v=voce(dataInModifica);
+  if(!v.sintomiIntensita) v.sintomiIntensita={};
+  const n=parseInt(val,10);
+  if(n>=1&&n<=10) v.sintomiIntensita[sk]=n;
+  v.agg=Date.now();
+  salva();
+}
+function mostraValInt(el){
+  const s=el.parentNode.querySelector(".val-int");
+  if(s) s.textContent=el.value+"/10";
+}
 function notaUrina(k){
   if(k==="u6") return "⚠️ Un colore marrone scuro, rosato o rosso è insolito: se persiste, parlane con un medico.";
   if(k==="u4"||k==="u5") return "💧 Urina piuttosto scura: probabilmente sei un po' disidratato, bevi di più.";
@@ -636,7 +791,7 @@ function vistaDiario(){
     else if(compilato(iso)) cls+=" compilato";
     else if(mancanti.has(iso)) cls+=" mancante";
     if(iso===oggi()) cls+=" oggi";
-    const click = iso>oggi() ? "" : `onclick="apriGiorno('${iso}')"`;
+    const click = iso>oggi() ? "" : `onclick="clicGiorno('${iso}')"`;
     h+=`<div class="${cls}" ${click}><span>${g}</span><span class="punti-giorno">${puntiGiorno(iso)}</span></div>`;
   }
   h+=`</div>
@@ -647,8 +802,9 @@ function vistaDiario(){
       <span><span class="pallino" style="background:var(--blu)"></span>Visita/esame</span>
       <span><span class="pallino" style="background:#9b59b6"></span>Notizia</span>
       <span><span class="pallino" style="background:var(--giallo)"></span>Farmaco</span>
+      <span><span class="pallino" style="background:var(--arancio)"></span>Cambio terapia</span>
     </div>
-    <div class="sotto" style="margin-top:10px">Tocca un giorno per vederlo e modificarlo.</div>
+    <div class="sotto" style="margin-top:10px">Tocca un giorno per il <b>riepilogo</b>, doppio tocco per <b>modificarlo</b>.</div>
   </div>`;
   h+=eventiMese(anno,mese);
   const mancantiArr=giorniMancanti();
@@ -666,6 +822,78 @@ function cambiaMese(n){
   render();
 }
 function apriGiorno(iso){ dataInModifica=iso; vista="oggi"; render(); window.scrollTo(0,0); }
+function clicGiorno(iso){
+  if(clickTimer){ clearTimeout(clickTimer); clickTimer=null; apriGiorno(iso); return; }
+  clickTimer=setTimeout(()=>{ clickTimer=null; mostraRiepilogo(iso); }, 260);
+}
+function chiudiModale(){ document.getElementById("modale").innerHTML=""; }
+function rieRiga(et, vl){ return vl?`<div class="rie-riga"><span class="et">${et}</span><span class="vl">${vl}</span></div>`:""; }
+function mostraRiepilogo(iso){
+  const v=vociProfilo()[iso];
+  const sp=saluteProfilo();
+  let corpo="";
+  if(!v || !compilato(iso)){
+    corpo=`<p class="sotto">Nessun dato registrato per questo giorno.</p>`;
+  } else {
+    const nomiSint=Object.fromEntries(SINTOMI);
+    const nomiAtt=Object.fromEntries(ATTIVITA);
+    const nomiUr=Object.fromEntries(URINA.map(([k,n])=>[k,n]));
+    const nomiFe=Object.fromEntries(FECI.map(([k,n])=>[k,n]));
+    const nomiOc=Object.fromEntries(OCCHI);
+    corpo+=rieRiga("Umore", v.umore?UMORE_EMOJI[v.umore-1]+" "+v.umore+"/5":"");
+    corpo+=rieRiga("Stress", v.stress?STRESS_EMOJI[v.stress-1]+" "+v.stress+"/5":"");
+    corpo+=rieRiga("Sonno", v.sonnoQ?SONNO_EMOJI[v.sonnoQ-1]+" "+v.sonnoQ+"/5":"");
+    corpo+=rieRiga("Orari sonno", (v.oraDormire||v.oraSveglia)?`${v.oraDormire||"?"} → ${v.oraSveglia||"?"}`:"");
+    corpo+=rieRiga("Risvegli notturni", v.risvegli!=null?v.risvegli+(v.motivoRisvegli?` (${esc(v.motivoRisvegli)})`:""):"");
+    corpo+=rieRiga("Sogni", v.sogni?esc(v.sogni):"");
+    corpo+=rieRiga("Incubi", v.incubi?("Sì"+(v.notaIncubi?` — ${esc(v.notaIncubi)}`:"")):"");
+    corpo+=rieRiga("Peso", v.peso!=null?v.peso+" kg":"");
+    corpo+=rieRiga("Temperatura", v.temperatura!=null?v.temperatura+" °C":"");
+    corpo+=rieRiga("Acqua", v.acqua?v.acqua+" bicchieri":"");
+    corpo+=rieRiga("Urina", v.urina?nomiUr[v.urina]:"");
+    corpo+=rieRiga("Feci", v.feci?nomiFe[v.feci]:"");
+    corpo+=rieRiga("Occhi", v.occhi?nomiOc[v.occhi]:"");
+    const pasti=PASTI.filter(([pk])=>v.pasti&&v.pasti[pk]&&(v.pasti[pk].q||v.pasti[pk].ora)).map(([pk,pn])=>{
+      const p=v.pasti[pk]; const q=(QUANTITA.find(x=>x[0]===p.q)||[])[1];
+      return pn.replace(/^[^ ]+ /,"")+(q?`: ${q}`:"")+(p.ora?` (${p.ora})`:"")+(p.ecc?" ⚠️":"");
+    });
+    corpo+=rieRiga("Pasti", pasti.join("<br>"));
+    if(v.sintomi&&v.sintomi.length){
+      const s=v.sintomi.map(sk=>{ const int=v.sintomiIntensita&&v.sintomiIntensita[sk]; return (nomiSint[sk]||sk)+(int?` (${int}/10)`:""); });
+      corpo+=rieRiga("Disturbi", s.join("<br>"));
+    }
+    if(v.attivita&&v.attivita.length){
+      const a=v.attivita.map(ak=>{
+        const dett=(v.attivitaDett&&v.attivitaDett[ak])||[];
+        if(dett.length) return dett.map(x=>`${(nomiAtt[ak]||ak).replace(/^[^ ]+ /,"")}${x.n?": "+esc(x.n):""}${x.d?` ${x.d}min`:""}${x.o?` (${x.o})`:""}`).join("<br>");
+        const tipo=v.attivitaTipo&&v.attivitaTipo[ak];
+        return (nomiAtt[ak]||ak)+(tipo?`: ${esc(tipo)}`:"");
+      });
+      corpo+=rieRiga("Cura di te", a.join("<br>"));
+    }
+    corpo+=rieRiga("Note", v.note?esc(v.note):"");
+    const fAtt=sp.farmaci.filter(f=>iso>=f.dal&&(!f.al||iso<=f.al)).map(f=>esc(f.nome)+(f.dose?` (${esc(f.dose)})`:""));
+    corpo+=rieRiga("Farmaci attivi", fAtt.join("<br>"));
+    const camb=sp.cambiamenti.filter(c=>c.data===iso).map(c=>esc(c.testo));
+    corpo+=rieRiga("Cambi terapia", camb.join("<br>"));
+    const vis=sp.visite.filter(x=>x.data===iso).map(x=>esc(x.testo));
+    corpo+=rieRiga("Visite/esami", vis.join("<br>"));
+    const notz=sp.notizie.filter(x=>x.data===iso).map(x=>(x.tipo==="buona"?"✨ ":"⛈️ ")+esc(x.testo));
+    corpo+=rieRiga("Notizie", notz.join("<br>"));
+    if(!corpo) corpo=`<p class="sotto">Giornata segnata senza dettagli.</p>`;
+  }
+  const html=`<div class="modale-overlay" onclick="if(event.target===this)chiudiModale()">
+    <div class="modale">
+      <div class="maniglia"></div>
+      <h2>${dataBella(iso)}</h2>
+      ${corpo}
+      <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+        <button class="btn btn-verde" onclick="chiudiModale();apriGiorno('${iso}')">✏️ Modifica questo giorno</button>
+        <button class="btn" onclick="chiudiModale()">Chiudi</button>
+      </div>
+    </div></div>`;
+  document.getElementById("modale").innerHTML=html;
+}
 function puntiGiorno(iso){
   const sp=saluteProfilo();
   const v=vociProfilo()[iso];
@@ -674,6 +902,7 @@ function puntiGiorno(iso){
   if(sp.visite.some(x=>x.data===iso)) p+=`<span class="punto" style="background:var(--blu)"></span>`;
   if(sp.notizie.some(x=>x.data===iso)) p+=`<span class="punto" style="background:#9b59b6"></span>`;
   if(sp.farmaci.some(f=>iso>=f.dal&&(!f.al||iso<=f.al))) p+=`<span class="punto" style="background:var(--giallo)"></span>`;
+  if(sp.cambiamenti.some(c=>c.data===iso)) p+=`<span class="punto" style="background:var(--arancio)"></span>`;
   return p;
 }
 function eventiMese(anno,mese){
@@ -688,6 +917,8 @@ function eventiMese(anno,mese){
     if(f.dal&&f.dal.startsWith(pref)) righe.push([f.dal, `💊 Inizio: <b>${esc(f.nome)}</b> ${f.dose?esc(f.dose):""}`]);
     if(f.al&&f.al.startsWith(pref)) righe.push([f.al, `💊 Fine: <b>${esc(f.nome)}</b>`]);
   }
+  for(const c of sp.cambiamenti.filter(c=>c.data&&c.data.startsWith(pref)&&c.tipo==="dose"))
+    righe.push([c.data, `🔔 ${esc(c.testo)}`]);
   if(righe.length===0) return "";
   righe.sort((a,b)=>a[0]<b[0]?-1:1);
   let h=`<div class="card"><h2>📌 Eventi del mese</h2>`;
@@ -1000,20 +1231,28 @@ function vistaSalute(){
   const sp=saluteProfilo();
   let h="";
 
+  if(saluteRitorno){
+    h+=`<div class="banner banner-verde" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-piccolo btn-verde" onclick="dataInModifica=saluteRitorno;saluteRitorno=null;vai('oggi')">‹ Torna al giorno</button>
+      Stai gestendo farmaci, visite e notizie collegati al ${dataBella(saluteRitorno)}.</div>`;
+  }
+
   // FARMACI
   h+=`<div class="card"><h2>💊 Farmaci e integratori</h2>`;
   const farmaciOrd=[...sp.farmaci].sort((a,b)=>(a.al?1:0)-(b.al?1:0) || (a.dal<b.dal?1:-1));
   for(const f of farmaciOrd){
     const inCorso=!f.al||f.al>=oggi();
     h+=`<div class="elemento-lista"><div class="titolo"><span>💊 ${esc(f.nome)} ${f.dose?`<span style="font-weight:400">— ${esc(f.dose)}</span>`:""}</span>
-      <span>
-        ${inCorso?`<button class="btn btn-piccolo" onclick="terminaFarmaco('${f.id}')">⏹ Termina oggi</button>`:""}
+      <span style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-piccolo" onclick="modificaFarmaco('${f.id}')" title="Modifica">✏️</button>
+        <button class="btn btn-piccolo" onclick="copiaFarmaco('${f.id}')" title="Copia">📋</button>
+        ${inCorso?`<button class="btn btn-piccolo" onclick="terminaFarmaco('${f.id}')">⏹ Termina</button>`:""}
         <button class="btn btn-piccolo" onclick="eliminaElemento('farmaci','${f.id}')">🗑️</button></span></div>
       <div class="sotto">Dal ${f.dal}${f.al?` al ${f.al}`:""} ${inCorso?'<span class="badge" style="background:var(--verde)">in corso</span>':""}</div></div>`;
   }
   h+=`<div class="form-riga" style="margin-top:10px">
-      <input type="text" id="fm-nome" placeholder="Nome (es. Magnesio)">
-      <input type="text" id="fm-dose" placeholder="Dose (es. 300mg, 1/giorno)"></div>
+      <input type="text" id="fm-nome" placeholder="Nome (es. Magnesio)" onkeydown="if(event.key==='Enter')aggiungiFarmaco()">
+      <input type="text" id="fm-dose" placeholder="Dose (es. 300mg, 1/giorno)" onkeydown="if(event.key==='Enter')aggiungiFarmaco()"></div>
     <div class="form-riga">
       <input type="date" id="fm-dal" value="${oggi()}" title="Inizio">
       <input type="date" id="fm-al" title="Fine (vuoto = in corso)"></div>
@@ -1028,7 +1267,7 @@ function vistaSalute(){
   }
   h+=`<div class="form-riga" style="margin-top:10px">
       <input type="date" id="vs-data" value="${dataInModifica<=oggi()?dataInModifica:oggi()}">
-      <input type="text" id="vs-testo" placeholder="Es. Gastroscopia, visita dentista..."></div>
+      <input type="text" id="vs-testo" placeholder="Es. Gastroscopia, visita dentista..." onkeydown="if(event.key==='Enter')aggiungiVisita()"></div>
     <div class="toggle-riga"><span>Esame invasivo?</span>
       <label class="interruttore"><input type="checkbox" id="vs-invasivo"><span class="slider"></span></label></div>
     <button class="btn btn-verde" onclick="aggiungiVisita()">➕ Aggiungi visita/esame</button>
@@ -1043,7 +1282,7 @@ function vistaSalute(){
   h+=`<div class="form-riga" style="margin-top:10px">
       <input type="date" id="nt-data" value="${dataInModifica<=oggi()?dataInModifica:oggi()}">
       <select id="nt-tipo"><option value="buona">✨ Bella notizia</option><option value="cattiva">⛈️ Brutta notizia</option></select></div>
-    <div class="form-riga"><input type="text" id="nt-testo" placeholder="Es. Esito positivo delle analisi..."></div>
+    <div class="form-riga"><input type="text" id="nt-testo" placeholder="Es. Esito positivo delle analisi..." onkeydown="if(event.key==='Enter')aggiungiNotizia()"></div>
     <button class="btn btn-verde" onclick="aggiungiNotizia()">➕ Aggiungi notizia</button>
     <div class="sotto">Serve a valutare l'effetto placebo/nocebo: quanto le notizie (belle o brutte) influenzano come ti senti nei giorni successivi.</div></div>`;
 
@@ -1069,7 +1308,7 @@ function vistaSalute(){
       </div>`:`<div class="chips" style="margin-top:8px"><button class="chip" onclick="statoIpotesi('${i.id}','aperta')">↩️ Riapri</button></div>`}
     </div>`;
   }
-  h+=`<div class="form-riga" style="margin-top:10px"><input type="text" id="ip-testo" placeholder="Scrivi la tua ipotesi..."></div>
+  h+=`<div class="form-riga" style="margin-top:10px"><input type="text" id="ip-testo" placeholder="Scrivi la tua ipotesi..." onkeydown="if(event.key==='Enter')aggiungiIpotesi()"></div>
     <button class="btn btn-verde" onclick="aggiungiIpotesi()">➕ Aggiungi ipotesi</button>
     <div class="sotto">💡 Controlla anche la sezione Analisi: le correlazioni trovate sono ottimi indizi per le tue ipotesi.</div></div>`;
   return h;
@@ -1077,13 +1316,34 @@ function vistaSalute(){
 function valore(id){ const e=document.getElementById(id); return e?e.value.trim():""; }
 function aggiungiFarmaco(){
   const nome=valore("fm-nome"); if(!nome){ alert("Scrivi il nome del farmaco."); return; }
-  saluteProfilo().farmaci.push({id:"f"+Date.now(), nome, dose:valore("fm-dose"),
-    dal:valore("fm-dal")||oggi(), al:valore("fm-al")||null, agg:Date.now()});
+  const dose=valore("fm-dose"); const dal=valore("fm-dal")||oggi();
+  saluteProfilo().farmaci.push({id:"f"+Date.now(), nome, dose, dal, al:valore("fm-al")||null, agg:Date.now()});
+  registraCambiamento(dal, `Inizio ${nome}${dose?` (${dose})`:""}`, "inizio");
   salva(); render();
 }
 function terminaFarmaco(id){
   const f=saluteProfilo().farmaci.find(x=>x.id===id); if(!f) return;
-  f.al=oggi(); f.agg=Date.now(); salva(); render();
+  f.al=oggi(); f.agg=Date.now();
+  registraCambiamento(oggi(), `Stop ${f.nome}`, "stop");
+  salva(); render();
+}
+function modificaFarmaco(id){
+  const f=saluteProfilo().farmaci.find(x=>x.id===id); if(!f) return;
+  const nome=prompt("Nome del farmaco:", f.nome); if(nome===null) return;
+  const dose=prompt("Dose (es. 300mg, 1/giorno):", f.dose||""); if(dose===null) return;
+  const dal=prompt("Data inizio (AAAA-MM-GG):", f.dal||oggi()); if(dal===null) return;
+  const al=prompt("Data fine (vuoto = in corso):", f.al||""); if(al===null) return;
+  const oldDose=(f.dose||"").trim(), newDose=(dose||"").trim();
+  if(newDose!==oldDose) registraCambiamento(oggi(), `Cambio dose ${nome.trim()||f.nome}: ${oldDose||"—"} → ${newDose||"—"}`, "dose");
+  f.nome=nome.trim()||f.nome; f.dose=newDose; f.dal=dal.trim()||f.dal; f.al=al.trim()||null; f.agg=Date.now();
+  salva(); render();
+}
+function copiaFarmaco(id){
+  const f=saluteProfilo().farmaci.find(x=>x.id===id); if(!f) return;
+  saluteProfilo().farmaci.push({id:"f"+Date.now(), nome:f.nome, dose:f.dose, dal:oggi(), al:null, agg:Date.now()});
+  registraCambiamento(oggi(), `Inizio ${f.nome}${f.dose?` (${f.dose})`:""}`, "inizio");
+  mostraToast("Farmaco copiato ✓");
+  salva(); render();
 }
 function aggiungiVisita(){
   const testo=valore("vs-testo"); if(!testo){ alert("Descrivi la visita o l'esame."); return; }
@@ -1244,7 +1504,7 @@ function cartaCloud(){
   if(!supaCfg || mostraConfigCloud){
     h+=`<p style="margin-top:0">Collega un progetto <b>Supabase</b> (gratuito) per salvare i dati nel cloud e usarli da più dispositivi con un login.</p>
       <div class="form-riga"><input type="text" id="su-url" placeholder="URL del progetto (https://xxxx.supabase.co)" value="${supaCfg?esc(supaCfg.url):""}"></div>
-      <div class="form-riga"><input type="text" id="su-key" placeholder="Chiave 'anon public'" value="${supaCfg?esc(supaCfg.key):""}"></div>
+      <div class="form-riga"><input type="text" id="su-key" placeholder="Chiave 'anon public'" value="${supaCfg?esc(supaCfg.key):""}" onkeydown="if(event.key==='Enter')salvaConfigSupa()"></div>
       <button class="btn btn-verde" onclick="salvaConfigSupa()">💾 Salva configurazione</button>
       <button class="dettagli-btn" style="margin-top:10px" onclick="togglaSezione('guida-supa')">📖 Come si configura (guida passo passo) ▾</button>
       <div id="guida-supa" class="nascosto">
@@ -1270,7 +1530,7 @@ create policy "solo i propri dati" on diario
   } else if(!utente){
     h+=`<p style="margin-top:0">Accedi per sincronizzare i tuoi dati nel cloud.</p>
       <div class="form-riga"><input type="email" id="au-email" placeholder="La tua email" autocomplete="email"></div>
-      <div class="form-riga"><input type="password" id="au-pw" placeholder="Password (min 6 caratteri)" autocomplete="current-password"></div>
+      <div class="form-riga"><input type="password" id="au-pw" placeholder="Password (min 6 caratteri)" autocomplete="current-password" onkeydown="if(event.key==='Enter')accedi()"></div>
       <div style="display:flex; gap:10px; flex-wrap:wrap">
         <button class="btn btn-verde" onclick="accedi()">🔑 Accedi</button>
         <button class="btn" onclick="registrati()">✍️ Registrati</button>
@@ -1295,6 +1555,7 @@ function salvaConfigSupa(){
   supaCfg={url,key};
   localStorage.setItem(SUPA_CHIAVE, JSON.stringify(supaCfg));
   mostraConfigCloud=false;
+  authPronto=false;
   initSupabase();
   mostraToast("Configurazione salvata ✓");
   render();
@@ -1305,7 +1566,7 @@ function initSupabase(){
   const s=document.createElement("script");
   s.src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
   s.onload=creaClientSupa;
-  s.onerror=()=>{ statoSync="⚠️ Sei offline: il cloud riprenderà appena torni connesso."; if(vista==="impostazioni")render(); };
+  s.onerror=()=>{ statoSync="⚠️ Sembri offline: per il primo accesso serve una connessione. Riprova quando sei online."; authPronto=true; render(); };
   document.head.appendChild(s);
 }
 function creaClientSupa(){
@@ -1313,11 +1574,12 @@ function creaClientSupa(){
     supa=window.supabase.createClient(supaCfg.url, supaCfg.key);
     supa.auth.getSession().then(({data})=>{
       utente=data.session?data.session.user:null;
+      authPronto=true;
       if(utente) sincronizza();
-      if(vista==="impostazioni") render();
+      render();
     });
-    supa.auth.onAuthStateChange((_e,sess)=>{ utente=sess?sess.user:null; });
-  }catch(e){ statoSync="⚠️ Configurazione non valida: controlla URL e chiave."; }
+    supa.auth.onAuthStateChange((_e,sess)=>{ utente=sess?sess.user:null; authPronto=true; render(); });
+  }catch(e){ statoSync="⚠️ Configurazione non valida: controlla URL e chiave."; authPronto=true; render(); }
 }
 async function registrati(){
   if(!supa){ alert("Prima configura Supabase."); return; }
@@ -1395,7 +1657,7 @@ function unisci(remoto, locale){
   out.salute=out.salute||{};
   for(const pid in (locale.salute||{})){
     out.salute[pid]=out.salute[pid]||{};
-    for(const k of ["farmaci","visite","notizie","ipotesi"]){
+    for(const k of ["farmaci","visite","notizie","ipotesi","cambiamenti"]){
       const mappa={};
       for(const x of (out.salute[pid][k]||[])) mappa[x.id]=x;
       for(const x of (locale.salute[pid][k]||[])){
@@ -1408,6 +1670,25 @@ function unisci(remoto, locale){
   return out;
 }
 
+/* ============ PWA: installazione e offline ============ */
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
+}
+window.addEventListener("beforeinstallprompt", (e)=>{
+  e.preventDefault(); promptInstall=e;
+  if(authPronto && utente && vista==="oggi") render();
+});
+window.addEventListener("appinstalled", ()=>{ promptInstall=null; });
+function installaApp(){
+  if(!promptInstall){
+    alert("Per installarla: dal menu del browser scegli 'Aggiungi a schermata Home' oppure 'Installa app'.");
+    return;
+  }
+  promptInstall.prompt();
+  promptInstall.userChoice.finally(()=>{ promptInstall=null; render(); });
+}
+function nascondiInstall(){ localStorage.setItem("fyg_install_no","1"); render(); }
+
 /* ============ AVVIO ============ */
 applicaTema();
 if(window.matchMedia){
@@ -1415,6 +1696,7 @@ if(window.matchMedia){
     if((S.impostazioni&&S.impostazioni.tema||"auto")==="auto") applicaTema();
   });
 }
+if(!supaCfg){ authPronto=true; }   // nessuna configurazione: mostra la schermata di configurazione
 initSupabase();
 render();
 </script>
