@@ -191,7 +191,7 @@ input[type=time],input[type=date]{border:2px solid var(--bordo); border-radius:1
   <button id="nav-oggi" onclick="vai('oggi')"><span class="icona">📝</span>Oggi</button>
   <button id="nav-diario" onclick="vai('diario')"><span class="icona">📅</span>Diario</button>
   <button id="nav-analisi" onclick="vai('analisi')"><span class="icona">📊</span>Analisi</button>
-  <button id="nav-salute" onclick="vai('salute')"><span class="icona">💊</span>Salute</button>
+  <button id="nav-salute" onclick="vai('salute')"><span class="icona">💊</span>Sanità</button>
   <button id="nav-impostazioni" onclick="vai('impostazioni')"><span class="icona">⚙️</span>Altro</button>
 </div>
 
@@ -314,7 +314,7 @@ function saluteProfilo(){
   if(!S.salute) S.salute={};
   if(!S.salute[S.profiloCorrente]) S.salute[S.profiloCorrente]={};
   const sp=S.salute[S.profiloCorrente];
-  for(const k of ["farmaci","visite","notizie","ipotesi","cambiamenti"]) if(!sp[k]) sp[k]=[];
+  for(const k of ["farmaci","trattamenti","visite","notizie","ipotesi","cambiamenti"]) if(!sp[k]) sp[k]=[];
   return sp;
 }
 function registraCambiamento(data, testo, tipo){
@@ -347,7 +347,17 @@ const SINTOMI=[["malTesta","🤕 Mal di testa"],["malPancia","🤢 Mal di pancia
   ["ferita","🩹 Ferita"],["freddo","🥶 Preso freddo"]];
 const ATTIVITA=[["meditazione","🧘 Meditazione"],["respirazione","🌬️ Respirazione"],["sport","🏃 Attività fisica"],
   ["pisolino","💤 Pisolino"],["sauna","💆 Sauna/Trattamenti"],["vacanza","🏖️ Vacanza/Riposo"]];
-const OBIETTIVO_ACQUA=8; // bicchieri da ~250 ml
+const OBIETTIVO_ACQUA_DEF=10; // bicchieri da ~250 ml (~2,5 litri) - valore predefinito, configurabile
+const ESEMPI_SINTOMO={
+  malTesta:["Tensiva","Emicrania","A grappolo","Da cervicale","Da sinusite","Pulsante"],
+  malPancia:["Reflusso","Acidità","Crampi","Gonfiore","Nausea","Colite","Stitichezza","Diarrea"],
+  dolori:["Muscolari","Articolari","Schiena","Cervicale","Gambe","Spalle"],
+  fastidi:["Prurito","Bruciore","Formicolii","Tensione"],
+  allergie:["Polline","Polvere","Alimentare","Pelo animali","Acari"],
+  malattia:["Raffreddore","Influenza","Febbre","Gastro","Tosse","Mal di gola"],
+  ferita:["Taglio","Graffio","Livido","Ustione","Abrasione"],
+  freddo:["Brividi","Mani/piedi freddi","Colpo d'aria"]
+};
 const URINA=[["u1","Trasparente","#f2f4d0"],["u2","Giallo pallido","#f5ec6a"],["u3","Giallo","#efd41c"],
   ["u4","Giallo scuro","#e0b60f"],["u5","Ambra","#c9930a"],["u6","Marrone/insolito","#7a4d06"]];
 const FECI=[["f_marrone","Marrone (normale)","#7a4a1e"],["f_giallo","Giallastra","#d3b24a"],["f_verde","Verde","#5f8a3c"],
@@ -477,11 +487,11 @@ function vistaOggi(){
   h+=`<div class="card"><h2>⚖️ Peso</h2>
     <div class="peso-box">
       <button class="btn" onclick="modificaPeso(-0.1)">−</button>
-      <input type="number" step="0.1" inputmode="decimal" value="${v.peso!=null?v.peso:""}" placeholder="kg"
+      <input type="number" step="0.1" inputmode="decimal" value="${v.peso!=null?v.peso:(ultimoPeso()!=null?ultimoPeso():"")}" placeholder="kg"
         onchange="impostaPesoDiretto(this.value)">
       <button class="btn" onclick="modificaPeso(0.1)">+</button>
     </div>
-    <div class="sotto" style="text-align:center">Pesati sempre alla stessa ora, es. appena sveglio.</div>
+    <div class="sotto" style="text-align:center">${v.peso==null&&ultimoPeso()!=null?`Predefinito: ultimo peso (${ultimoPeso()} kg). `:""}Pesati sempre alla stessa ora, es. appena sveglio.</div>
   </div>`;
 
   // Sonno
@@ -521,12 +531,14 @@ function vistaOggi(){
 
   // Idratazione e segnali del corpo
   {
+    const obiettivo=obiettivoAcqua();
     const bicch=v.acqua||0;
-    const pctAcqua=Math.min(100, Math.round(bicch/OBIETTIVO_ACQUA*100));
+    const pctAcqua=Math.min(100, Math.round(bicch/obiettivo*100));
     let msgAcqua;
     if(bicch===0) msgAcqua="Tocca + ogni volta che bevi un bicchiere d'acqua.";
-    else if(bicch<OBIETTIVO_ACQUA) msgAcqua=`Ancora ${OBIETTIVO_ACQUA-bicch} bicchier${OBIETTIVO_ACQUA-bicch===1?"e":"i"} per l'obiettivo.`;
+    else if(bicch<obiettivo) msgAcqua=`Ancora ${obiettivo-bicch} bicchier${obiettivo-bicch===1?"e":"i"} per l'obiettivo.`;
     else msgAcqua="Ottimo, obiettivo raggiunto! 💧";
+    const sepStile="font-weight:700;margin:8px 0;padding-top:18px;border-top:1px solid var(--bordo)";
     h+=`<div class="card"><h2>💧 Idratazione e segnali del corpo</h2>
       <div class="nome-scala" style="font-weight:700;margin-bottom:8px">Acqua bevuta (bicchieri da ~250 ml)</div>
       <div class="contatore-acqua">
@@ -535,17 +547,20 @@ function vistaOggi(){
         <button class="btn" onclick="modificaAcqua(1)">+</button>
       </div>
       <div class="barra-acqua"><div style="width:${pctAcqua}%"></div></div>
-      <div class="sotto" style="text-align:center">${msgAcqua} Obiettivo indicativo: ${OBIETTIVO_ACQUA} bicchieri (~2 litri).</div>
+      <div class="sotto" style="text-align:center">${msgAcqua}</div>
+      <div class="toggle-riga" style="margin-top:8px"><span>🎯 Obiettivo giornaliero</span>
+        <span><input type="number" min="1" max="30" value="${obiettivo}" style="width:70px;text-align:center" onchange="impostaObiettivoAcqua(this.value)"> bicchieri</span></div>
+      <div class="sotto">Circa ${(obiettivo*0.25).toFixed(1).replace(".",",")} litri. Il fabbisogno varia da persona a persona: regolalo in base alle tue condizioni (vale per questo profilo).</div>
 
-      <div class="nome-scala" style="font-weight:700;margin:16px 0 8px">🚻 Colore dell'urina</div>
+      <div class="nome-scala" style="${sepStile}">🚻 Colore dell'urina</div>
       <div class="chips">${URINA.map(([k,n,c])=>`<button class="chip ${v.urina===k?"attivo-verde":""}" onclick="imposta('urina','${k}')"><span class="pastiglia-colore" style="background:${c}"></span>${n}</button>`).join("")}</div>
       <div class="sotto">${v.urina?notaUrina(v.urina):"Più l'urina è chiara, meglio sei idratato. È un ottimo segnale del corpo."}</div>
 
-      <div class="nome-scala" style="font-weight:700;margin:16px 0 8px">💩 Colore delle feci</div>
+      <div class="nome-scala" style="${sepStile}">💩 Colore delle feci</div>
       <div class="chips">${FECI.map(([k,n,c])=>`<button class="chip ${v.feci===k?"attivo-verde":""}" onclick="imposta('feci','${k}')"><span class="pastiglia-colore" style="background:${c}"></span>${n}</button>`).join("")}</div>
       ${v.feci?`<div class="sotto">${notaFeci(v.feci)}</div>`:""}
 
-      <div class="nome-scala" style="font-weight:700;margin:16px 0 8px">👁️ Giallore degli occhi</div>
+      <div class="nome-scala" style="${sepStile}">👁️ Giallore degli occhi</div>
       <div class="chips">${OCCHI.map(([k,n])=>`<button class="chip ${v.occhi===k?(k==="o_no"?"attivo-verde":"attivo"):""}" onclick="imposta('occhi','${k}')">${n}</button>`).join("")}</div>
       ${v.occhi==="o_marcato"?`<div class="sotto">⚠️ Un giallore evidente di occhi o pelle va sempre mostrato a un medico (può riguardare fegato o bilirubina).</div>`:`<div class="sotto">Un colore giallo di occhi o pelle (ittero) è un segnale da non ignorare.</div>`}
     </div>`;
@@ -573,17 +588,24 @@ function vistaOggi(){
     h+=`<button class="chip ${v.sintomi.includes(sk)?"attivo":""}" onclick="togglaLista('sintomi','${sk}')">${sn}</button>`;
   }
   h+=`</div>`;
-  // Intensità dei disturbi (facoltativa)
+  // Dettaglio disturbi: tipo (facoltativo) + intensità 1-10
   for(const [sk,sn] of SINTOMI){
     if(!v.sintomi.includes(sk)) continue;
+    const tipo=(v.sintomiTipo&&v.sintomiTipo[sk])||"";
     const val=(v.sintomiIntensita&&v.sintomiIntensita[sk])||"";
-    h+=`<div class="riga-intensita">
-      <span class="etichetta-int">${sn}</span>
-      <input type="range" min="1" max="10" value="${val||5}" oninput="mostraValInt(this)" onchange="impostaIntensita('${sk}',this.value)">
-      <span class="val-int">${val?val+"/10":"—"}</span>
+    const sugg=suggerimentiSintomo(sk);
+    h+=`<div class="voce-attivita">
+      <label class="sotto" style="display:block;margin-bottom:4px;font-weight:700">${sn}</label>
+      <input type="text" list="ds-${sk}" value="${esc(tipo)}" placeholder="Che tipo? (facoltativo, es. ${esc(sugg[0]||"…")})" onkeydown="if(event.key==='Enter')this.blur()" onchange="impostaTipoSintomo('${sk}',this.value)" style="width:100%;margin-bottom:8px">
+      <datalist id="ds-${sk}">${sugg.map(s=>`<option value="${esc(s)}"></option>`).join("")}</datalist>
+      <div class="riga-intensita" style="margin:0">
+        <span class="etichetta-int">Intensità</span>
+        <input type="range" min="1" max="10" value="${val||5}" oninput="mostraValInt(this)" onchange="impostaIntensita('${sk}',this.value)">
+        <span class="val-int">${val?val+"/10":"—"}</span>
+      </div>
     </div>`;
   }
-  if(v.sintomi.length>0) h+=`<div class="sotto">Trascina per indicare quanto è forte ogni disturbo (1-10). Facoltativo.</div>`;
+  if(v.sintomi.length>0) h+=`<div class="sotto">Per ogni disturbo puoi indicare il tipo e l'intensità (1-10). Tutto facoltativo.</div>`;
   if(v.sintomi.includes("ferita")){
     h+=`<div class="toggle-riga"><span>La ferita cicatrizza lentamente?</span>
       <label class="interruttore"><input type="checkbox" ${v.feritaLenta?"checked":""} onchange="imposta('feritaLenta',this.checked)"><span class="slider"></span></label></div>
@@ -630,11 +652,13 @@ function vistaOggi(){
   {
     const sp=saluteProfilo();
     const fAtt=sp.farmaci.filter(f=>dataInModifica>=f.dal&&(!f.al||dataInModifica<=f.al));
+    const tAtt=sp.trattamenti.filter(t=>dataInModifica>=t.dal&&(!t.al||dataInModifica<=t.al));
     const vG=sp.visite.filter(x=>x.data===dataInModifica);
     const nG=sp.notizie.filter(x=>x.data===dataInModifica);
-    h+=`<div class="card"><h2>💊 Salute in questo giorno</h2>`;
-    if(fAtt.length===0&&vG.length===0&&nG.length===0) h+=`<div class="sotto" style="margin-top:0">Nessun farmaco, visita o notizia registrata per questo giorno.</div>`;
+    h+=`<div class="card"><h2>💊 Sanità in questo giorno</h2>`;
+    if(fAtt.length===0&&tAtt.length===0&&vG.length===0&&nG.length===0) h+=`<div class="sotto" style="margin-top:0">Nessun farmaco, trattamento, visita o notizia registrata per questo giorno.</div>`;
     for(const f of fAtt) h+=`<div class="elemento-lista">💊 <b>${esc(f.nome)}</b> ${f.dose?"— "+esc(f.dose):""} <span class="sotto" style="display:inline">(in corso)</span></div>`;
+    for(const t of tAtt) h+=`<div class="elemento-lista">🧑‍⚕️ <b>${esc(t.nome)}</b> ${t.dett?"— "+esc(t.dett):""} <span class="sotto" style="display:inline">(in corso)</span></div>`;
     for(const x of vG) h+=`<div class="elemento-lista">🩺 <b>${esc(x.testo)}</b>${x.invasivo?' <span class="badge" style="background:var(--rosso)">invasivo</span>':""}</div>`;
     for(const x of nG) h+=`<div class="elemento-lista">${x.tipo==="buona"?"📬✨":"📬⛈️"} ${esc(x.testo)}</div>`;
     h+=`<button class="chip" style="margin-top:6px" onclick="saluteRitorno=dataInModifica;vai('salute')">➕ Gestisci farmaci, visite e notizie</button></div>`;
@@ -754,6 +778,41 @@ function mostraValInt(el){
   const s=el.parentNode.querySelector(".val-int");
   if(s) s.textContent=el.value+"/10";
 }
+function obiettivoAcqua(){
+  const m=S.impostazioni&&S.impostazioni.obiettivoAcquaProfilo;
+  const n=m&&m[S.profiloCorrente];
+  return (n&&n>0)?n:OBIETTIVO_ACQUA_DEF;
+}
+function impostaObiettivoAcqua(val){
+  const n=parseInt(val,10);
+  if(!S.impostazioni.obiettivoAcquaProfilo) S.impostazioni.obiettivoAcquaProfilo={};
+  S.impostazioni.obiettivoAcquaProfilo[S.profiloCorrente]=(isNaN(n)||n<1)?OBIETTIVO_ACQUA_DEF:Math.min(30,n);
+  salva(); render();
+}
+function ultimoPeso(){
+  const voci=vociProfilo();
+  const date=Object.keys(voci).filter(d=>d<=dataInModifica && voci[d].peso!=null).sort();
+  return date.length? voci[date[date.length-1]].peso : null;
+}
+function impostaTipoSintomo(sk, val){
+  const v=voce(dataInModifica);
+  if(!v.sintomiTipo) v.sintomiTipo={};
+  const t=String(val||"").trim();
+  if(t) v.sintomiTipo[sk]=t; else delete v.sintomiTipo[sk];
+  v.agg=Date.now();
+  salva();
+}
+function suggerimentiSintomo(sk){
+  const voci=vociProfilo();
+  const conta={};
+  for(const d in voci){
+    const t=voci[d].sintomiTipo && voci[d].sintomiTipo[sk];
+    if(t){ const k=String(t).trim(); if(k) conta[k]=(conta[k]||0)+1; }
+  }
+  const storico=Object.entries(conta).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+  const esempi=(ESEMPI_SINTOMO[sk]||[]).filter(e=>!storico.some(s=>s.toLowerCase()===e.toLowerCase()));
+  return storico.concat(esempi);
+}
 function notaUrina(k){
   if(k==="u6") return "⚠️ Un colore marrone scuro, rosato o rosso è insolito: se persiste, parlane con un medico.";
   if(k==="u4"||k==="u5") return "💧 Urina piuttosto scura: probabilmente sei un po' disidratato, bevi di più.";
@@ -802,6 +861,7 @@ function vistaDiario(){
       <span><span class="pallino" style="background:var(--blu)"></span>Visita/esame</span>
       <span><span class="pallino" style="background:#9b59b6"></span>Notizia</span>
       <span><span class="pallino" style="background:var(--giallo)"></span>Farmaco</span>
+      <span><span class="pallino" style="background:#16a085"></span>Trattamento</span>
       <span><span class="pallino" style="background:var(--arancio)"></span>Cambio terapia</span>
     </div>
     <div class="sotto" style="margin-top:10px">Tocca un giorno per il <b>riepilogo</b>, doppio tocco per <b>modificarlo</b>.</div>
@@ -859,7 +919,7 @@ function mostraRiepilogo(iso){
     });
     corpo+=rieRiga("Pasti", pasti.join("<br>"));
     if(v.sintomi&&v.sintomi.length){
-      const s=v.sintomi.map(sk=>{ const int=v.sintomiIntensita&&v.sintomiIntensita[sk]; return (nomiSint[sk]||sk)+(int?` (${int}/10)`:""); });
+      const s=v.sintomi.map(sk=>{ const int=v.sintomiIntensita&&v.sintomiIntensita[sk]; const tp=v.sintomiTipo&&v.sintomiTipo[sk]; return (nomiSint[sk]||sk)+(tp?`: ${esc(tp)}`:"")+(int?` (${int}/10)`:""); });
       corpo+=rieRiga("Disturbi", s.join("<br>"));
     }
     if(v.attivita&&v.attivita.length){
@@ -874,6 +934,8 @@ function mostraRiepilogo(iso){
     corpo+=rieRiga("Note", v.note?esc(v.note):"");
     const fAtt=sp.farmaci.filter(f=>iso>=f.dal&&(!f.al||iso<=f.al)).map(f=>esc(f.nome)+(f.dose?` (${esc(f.dose)})`:""));
     corpo+=rieRiga("Farmaci attivi", fAtt.join("<br>"));
+    const tAtt=sp.trattamenti.filter(t=>iso>=t.dal&&(!t.al||iso<=t.al)).map(t=>esc(t.nome)+(t.dett?` (${esc(t.dett)})`:""));
+    corpo+=rieRiga("Trattamenti attivi", tAtt.join("<br>"));
     const camb=sp.cambiamenti.filter(c=>c.data===iso).map(c=>esc(c.testo));
     corpo+=rieRiga("Cambi terapia", camb.join("<br>"));
     const vis=sp.visite.filter(x=>x.data===iso).map(x=>esc(x.testo));
@@ -902,6 +964,7 @@ function puntiGiorno(iso){
   if(sp.visite.some(x=>x.data===iso)) p+=`<span class="punto" style="background:var(--blu)"></span>`;
   if(sp.notizie.some(x=>x.data===iso)) p+=`<span class="punto" style="background:#9b59b6"></span>`;
   if(sp.farmaci.some(f=>iso>=f.dal&&(!f.al||iso<=f.al))) p+=`<span class="punto" style="background:var(--giallo)"></span>`;
+  if(sp.trattamenti.some(t=>iso>=t.dal&&(!t.al||iso<=t.al))) p+=`<span class="punto" style="background:#16a085"></span>`;
   if(sp.cambiamenti.some(c=>c.data===iso)) p+=`<span class="punto" style="background:var(--arancio)"></span>`;
   return p;
 }
@@ -916,6 +979,10 @@ function eventiMese(anno,mese){
   for(const f of sp.farmaci){
     if(f.dal&&f.dal.startsWith(pref)) righe.push([f.dal, `💊 Inizio: <b>${esc(f.nome)}</b> ${f.dose?esc(f.dose):""}`]);
     if(f.al&&f.al.startsWith(pref)) righe.push([f.al, `💊 Fine: <b>${esc(f.nome)}</b>`]);
+  }
+  for(const t of sp.trattamenti){
+    if(t.dal&&t.dal.startsWith(pref)) righe.push([t.dal, `🧑‍⚕️ Inizio: <b>${esc(t.nome)}</b> ${t.dett?esc(t.dett):""}`]);
+    if(t.al&&t.al.startsWith(pref)) righe.push([t.al, `🧑‍⚕️ Fine: <b>${esc(t.nome)}</b>`]);
   }
   for(const c of sp.cambiamenti.filter(c=>c.data&&c.data.startsWith(pref)&&c.tipo==="dose"))
     righe.push([c.data, `🔔 ${esc(c.testo)}`]);
@@ -1047,8 +1114,8 @@ function cartaConsigli(){
     if(conSole.length>=5 && conSole.filter(g=>!soleSufficiente(g)).length/conSole.length>0.5)
       c.push("☀️ Stai prendendo poco sole: punta ad almeno 15 minuti al giorno (30 se nuvoloso). La luce solare regola vitamina D, umore e ritmo sonno-veglia.");
     const mAcqua=media("acqua");
-    if(mAcqua!=null&&mAcqua<6)
-      c.push("💧 Bevi poca acqua: punta a circa 8 bicchieri (2 litri) al giorno. Una buona idratazione aiuta reni, digestione, pelle e concentrazione.");
+    if(mAcqua!=null&&mAcqua<obiettivoAcqua()*0.7)
+      c.push(`💧 Bevi poca acqua rispetto al tuo obiettivo (${obiettivoAcqua()} bicchieri): prova ad avvicinarti durante la giornata. Una buona idratazione aiuta reni, digestione, pelle e concentrazione.`);
     const giorniUrinaScura=giorni.filter(g=>g.urina==="u4"||g.urina==="u5"||g.urina==="u6").length;
     if(giorniUrinaScura>=3)
       c.push("🚻 Spesso la tua urina è scura: è un segnale di disidratazione. Prova a bere di più durante la giornata, non solo ai pasti.");
@@ -1106,7 +1173,7 @@ function disegnaGrafico(){
   }
   let min=Math.min(...valori.map(p=>p.val)), max=Math.max(...valori.map(p=>p.val));
   if(graficoScelto!=="peso" && graficoScelto!=="temperatura" && graficoScelto!=="acqua"){ min=1; max=5; }
-  if(graficoScelto==="acqua"){ min=0; max=Math.max(OBIETTIVO_ACQUA, max); }
+  if(graficoScelto==="acqua"){ min=0; max=Math.max(obiettivoAcqua(), max); }
   if(min===max){ min-=1; max+=1; }
   const x=i=>pad+(W-pad-10)*(i/29);
   const y=v=>H-pad+ (pad+10-H)*((v-min)/(max-min));
@@ -1151,7 +1218,7 @@ const FATTORI=[
   ["pocoSole","poco sole preso", v=>v.sole!=null&&!soleSufficiente(v)],
   ["caldo","una giornata molto calda (≥28°C)", v=>v.temperatura!=null&&v.temperatura>=28],
   ["gelo","una giornata molto fredda (≤5°C)", v=>v.temperatura!=null&&v.temperatura<=5],
-  ["pocaAcqua","aver bevuto poca acqua", v=>v.acqua!=null&&v.acqua<=4],
+  ["pocaAcqua","aver bevuto poca acqua", v=>v.acqua!=null&&v.acqua<=Math.max(3,Math.round(obiettivoAcqua()/2))],
   ["urinaScura","urina scura (disidratazione)", v=>v.urina==="u4"||v.urina==="u5"||v.urina==="u6"],
 ];
 function fattoriDinamici(){
@@ -1159,6 +1226,9 @@ function fattoriDinamici(){
   const out=[];
   for(const f of sp.farmaci){
     out.push(["farm_"+f.id, `il farmaco "${esc(f.nome)}"`, (v,d)=>d>=f.dal&&(!f.al||d<=f.al)]);
+  }
+  for(const t of sp.trattamenti){
+    out.push(["tratt_"+t.id, `il trattamento "${esc(t.nome)}"`, (v,d)=>d>=t.dal&&(!t.al||d<=t.al)]);
   }
   if(sp.visite.length>0){
     out.push(["visita", "una visita o esame", (v,d)=>sp.visite.some(x=>x.data===d)]);
@@ -1259,6 +1329,28 @@ function vistaSalute(){
     <button class="btn btn-verde" onclick="aggiungiFarmaco()">➕ Aggiungi farmaco</button>
     <div class="sotto">L'analisi confronterà i giorni con e senza il farmaco per scovare miglioramenti ed effetti collaterali.</div></div>`;
 
+  // TRATTAMENTI REGOLARI
+  h+=`<div class="card"><h2>🧑‍⚕️ Trattamenti regolari</h2>
+    <div class="sotto" style="margin-top:0;margin-bottom:8px">Terapie che segui con regolarità (es. fisioterapia, agopuntura, dieta specifica, cure). Funzionano come i farmaci: l'analisi confronta i giorni con e senza.</div>`;
+  const trattOrd=[...sp.trattamenti].sort((a,b)=>(a.al?1:0)-(b.al?1:0) || (a.dal<b.dal?1:-1));
+  for(const t of trattOrd){
+    const inCorso=!t.al||t.al>=oggi();
+    h+=`<div class="elemento-lista"><div class="titolo"><span>🧑‍⚕️ ${esc(t.nome)} ${t.dett?`<span style="font-weight:400">— ${esc(t.dett)}</span>`:""}</span>
+      <span style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-piccolo" onclick="modificaTrattamento('${t.id}')" title="Modifica">✏️</button>
+        <button class="btn btn-piccolo" onclick="copiaTrattamento('${t.id}')" title="Copia">📋</button>
+        ${inCorso?`<button class="btn btn-piccolo" onclick="terminaTrattamento('${t.id}')">⏹ Termina</button>`:""}
+        <button class="btn btn-piccolo" onclick="eliminaElemento('trattamenti','${t.id}')">🗑️</button></span></div>
+      <div class="sotto">Dal ${t.dal}${t.al?` al ${t.al}`:""} ${inCorso?'<span class="badge" style="background:var(--verde)">in corso</span>':""}</div></div>`;
+  }
+  h+=`<div class="form-riga" style="margin-top:10px">
+      <input type="text" id="tr-nome" placeholder="Nome (es. Fisioterapia)" onkeydown="if(event.key==='Enter')aggiungiTrattamento()">
+      <input type="text" id="tr-dett" placeholder="Dettaglio (es. 2 volte/settimana)" onkeydown="if(event.key==='Enter')aggiungiTrattamento()"></div>
+    <div class="form-riga">
+      <input type="date" id="tr-dal" value="${oggi()}" title="Inizio">
+      <input type="date" id="tr-al" title="Fine (vuoto = in corso)"></div>
+    <button class="btn btn-verde" onclick="aggiungiTrattamento()">➕ Aggiungi trattamento</button></div>`;
+
   // VISITE ED ESAMI
   h+=`<div class="card"><h2>🩺 Visite ed esami</h2>`;
   for(const x of [...sp.visite].sort((a,b)=>a.data<b.data?1:-1)){
@@ -1300,6 +1392,7 @@ function vistaSalute(){
       <div style="background:var(--bordo);border-radius:999px;height:10px;overflow:hidden;margin:8px 0 4px 0">
         <div style="background:var(--verde);height:100%;width:${perc}%"></div></div>
       <div class="sotto">Indizi: ${i.pro} a favore, ${i.contro} contro ${tot>0?`→ sembra vera al ${perc}%`:""}</div>
+      ${listaIndizi(i)}
       ${i.stato==="aperta"?`<div class="chips" style="margin-top:8px">
         <button class="chip" onclick="votaIpotesi('${i.id}',1)">👍 Indizio a favore</button>
         <button class="chip" onclick="votaIpotesi('${i.id}',-1)">👎 Indizio contro</button>
@@ -1345,6 +1438,37 @@ function copiaFarmaco(id){
   mostraToast("Farmaco copiato ✓");
   salva(); render();
 }
+function aggiungiTrattamento(){
+  const nome=valore("tr-nome"); if(!nome){ alert("Scrivi il nome del trattamento."); return; }
+  const dett=valore("tr-dett"); const dal=valore("tr-dal")||oggi();
+  saluteProfilo().trattamenti.push({id:"t"+Date.now(), nome, dett, dal, al:valore("tr-al")||null, agg:Date.now()});
+  registraCambiamento(dal, `Inizio trattamento ${nome}${dett?` (${dett})`:""}`, "inizio");
+  salva(); render();
+}
+function terminaTrattamento(id){
+  const t=saluteProfilo().trattamenti.find(x=>x.id===id); if(!t) return;
+  t.al=oggi(); t.agg=Date.now();
+  registraCambiamento(oggi(), `Stop trattamento ${t.nome}`, "stop");
+  salva(); render();
+}
+function modificaTrattamento(id){
+  const t=saluteProfilo().trattamenti.find(x=>x.id===id); if(!t) return;
+  const nome=prompt("Nome del trattamento:", t.nome); if(nome===null) return;
+  const dett=prompt("Dettaglio (es. 2 volte/settimana):", t.dett||""); if(dett===null) return;
+  const dal=prompt("Data inizio (AAAA-MM-GG):", t.dal||oggi()); if(dal===null) return;
+  const al=prompt("Data fine (vuoto = in corso):", t.al||""); if(al===null) return;
+  const oldDett=(t.dett||"").trim(), newDett=(dett||"").trim();
+  if(newDett!==oldDett) registraCambiamento(oggi(), `Cambio trattamento ${nome.trim()||t.nome}: ${oldDett||"—"} → ${newDett||"—"}`, "dose");
+  t.nome=nome.trim()||t.nome; t.dett=newDett; t.dal=dal.trim()||t.dal; t.al=al.trim()||null; t.agg=Date.now();
+  salva(); render();
+}
+function copiaTrattamento(id){
+  const t=saluteProfilo().trattamenti.find(x=>x.id===id); if(!t) return;
+  saluteProfilo().trattamenti.push({id:"t"+Date.now(), nome:t.nome, dett:t.dett, dal:oggi(), al:null, agg:Date.now()});
+  registraCambiamento(oggi(), `Inizio trattamento ${t.nome}${t.dett?` (${t.dett})`:""}`, "inizio");
+  mostraToast("Trattamento copiato ✓");
+  salva(); render();
+}
 function aggiungiVisita(){
   const testo=valore("vs-testo"); if(!testo){ alert("Descrivi la visita o l'esame."); return; }
   saluteProfilo().visite.push({id:"v"+Date.now(), data:valore("vs-data")||oggi(), testo,
@@ -1362,9 +1486,37 @@ function aggiungiIpotesi(){
   saluteProfilo().ipotesi.push({id:"i"+Date.now(), testo, creata:oggi(), stato:"aperta", pro:0, contro:0, agg:Date.now()});
   salva(); render();
 }
+function assicuraIndizi(i){
+  if(!i.indiziPro) i.indiziPro = Array.from({length:i.pro||0},()=>({testo:"",data:i.creata||oggi()}));
+  if(!i.indiziContro) i.indiziContro = Array.from({length:i.contro||0},()=>({testo:"",data:i.creata||oggi()}));
+}
+function listaIndizi(i){
+  assicuraIndizi(i);
+  if(i.indiziPro.length===0 && i.indiziContro.length===0) return "";
+  const riga=(e,tipo,idx)=>`<div class="rie-riga" style="padding:4px 0">
+    <span class="vl" style="font-weight:400;text-align:left">${tipo==="pro"?"👍":"👎"} ${e.testo?esc(e.testo):'<i style="opacity:.6">senza nota</i>'} ${e.data?`<span class="sotto" style="display:inline">(${e.data.slice(8,10)}/${e.data.slice(5,7)})</span>`:""}</span>
+    <button class="btn btn-piccolo" onclick="eliminaIndizio('${i.id}','${tipo}',${idx})">🗑️</button></div>`;
+  let h="";
+  i.indiziPro.forEach((e,idx)=>{ h+=riga(e,"pro",idx); });
+  i.indiziContro.forEach((e,idx)=>{ h+=riga(e,"contro",idx); });
+  return `<div style="margin-top:8px">${h}</div>`;
+}
 function votaIpotesi(id, delta){
   const i=saluteProfilo().ipotesi.find(x=>x.id===id); if(!i) return;
-  if(delta>0) i.pro++; else i.contro++;
+  assicuraIndizi(i);
+  const nota=prompt(delta>0?"Quale indizio a FAVORE? (facoltativo)":"Quale indizio CONTRO? (facoltativo)","");
+  if(nota===null) return;
+  const el={testo:String(nota).trim(), data:oggi()};
+  if(delta>0){ i.indiziPro.push(el); i.pro=i.indiziPro.length; }
+  else { i.indiziContro.push(el); i.contro=i.indiziContro.length; }
+  i.agg=Date.now(); salva(); render();
+}
+function eliminaIndizio(id, tipo, idx){
+  const i=saluteProfilo().ipotesi.find(x=>x.id===id); if(!i) return;
+  assicuraIndizi(i);
+  const arr = tipo==="pro"?i.indiziPro:i.indiziContro;
+  arr.splice(idx,1);
+  i.pro=i.indiziPro.length; i.contro=i.indiziContro.length;
   i.agg=Date.now(); salva(); render();
 }
 function statoIpotesi(id, stato){
@@ -1657,7 +1809,7 @@ function unisci(remoto, locale){
   out.salute=out.salute||{};
   for(const pid in (locale.salute||{})){
     out.salute[pid]=out.salute[pid]||{};
-    for(const k of ["farmaci","visite","notizie","ipotesi","cambiamenti"]){
+    for(const k of ["farmaci","trattamenti","visite","notizie","ipotesi","cambiamenti"]){
       const mappa={};
       for(const x of (out.salute[pid][k]||[])) mappa[x.id]=x;
       for(const x of (locale.salute[pid][k]||[])){
@@ -1689,7 +1841,33 @@ function installaApp(){
 }
 function nascondiInstall(){ localStorage.setItem("fyg_install_no","1"); render(); }
 
+/* ============ SWIPE (cambio giorno/mese) ============ */
+function setupSwipe(){
+  let x0=null,y0=null,t0=0;
+  const bloccata=(el)=> el && el.closest && el.closest('input,textarea,select,button,label,a,.modale,.riga-intensita,.voce-attivita,canvas,.contatore-acqua');
+  document.addEventListener("touchstart",(e)=>{
+    if(e.touches.length!==1 || bloccata(e.target)){ x0=null; return; }
+    x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now();
+  },{passive:true});
+  document.addEventListener("touchend",(e)=>{
+    if(x0==null) return;
+    const t=e.changedTouches[0];
+    const dx=t.clientX-x0, dy=t.clientY-y0, dt=Date.now()-t0;
+    x0=null;
+    if(dt>600 || Math.abs(dx)<60 || Math.abs(dy)>50) return;
+    if(!authPronto || !utente) return;
+    const avanti = dx<0; // trascinamento verso sinistra = giorno/mese successivo
+    if(vista==="oggi"){
+      if(avanti){ if(dataInModifica<oggi()){ dataInModifica=spostaGiorni(dataInModifica,1); render(); } }
+      else { dataInModifica=spostaGiorni(dataInModifica,-1); render(); }
+    } else if(vista==="diario"){
+      cambiaMese(avanti?1:-1);
+    }
+  },{passive:true});
+}
+
 /* ============ AVVIO ============ */
+setupSwipe();
 applicaTema();
 if(window.matchMedia){
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", ()=>{
