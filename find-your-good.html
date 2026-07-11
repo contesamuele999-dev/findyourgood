@@ -1884,8 +1884,8 @@ setInterval(()=>{
 /* ============ SUPABASE (cloud + login) ============ */
 /* CLOUD FISSO: inserisci qui una volta i dati del progetto Supabase.
    Da quel momento all'accesso servono SOLO email e password (niente dati tecnici). */
-const CLOUD_URL="";   /* <-- Project URL, es. https://abcdefgh.supabase.co */
-const CLOUD_KEY="";   /* <-- chiave "anon public" (stringa lunga) */
+const CLOUD_URL="https://ztbkcbcglqrchemyffdi.supabase.co";   /* Project URL Supabase (fisso) */
+const CLOUD_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0YmtjYmNnbHFyY2hlbXlmZmRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3MzM3MDcsImV4cCI6MjA5OTMwOTcwN30.wNUxJcM2dI4-D7uOrY7AmFTQq0IdhrqdIqs7YQcNCGM";   /* chiave anon public (pubblica, protetta da RLS) */
 const CLOUD_FISSO = CLOUD_URL.indexOf("https://")===0 && CLOUD_KEY.length>20;
 
 const SUPA_CHIAVE="fyg_supa";
