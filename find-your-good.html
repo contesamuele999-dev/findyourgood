@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#2e7d6b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Find Your Good</title><!-- v2 -->
+<style>
+:root{
+  --verde:#2e7d6b; --verde-chiaro:#e3f2ee; --crema:#faf7f2; --testo:#2b2b2b;
+  --grigio:#8a8a8a; --rosso:#c65b4e; --rosso-chiaro:#fdeae7; --giallo:#f2b950;
+  --card:#ffffff; --bordo:#e6e1d8; --blu:#4a7fa5; --input:#ffffff; --ombra:rgba(0,0,0,.05);
+}
+/* Tema scuro: applicato automaticamente col sistema (se non forzato "chiaro"), o forzato "scuro" */
+@media (prefers-color-scheme: dark){
+  :root:not([data-tema="chiaro"]){
+    --verde:#4db6a0; --verde-chiaro:#1e3d37; --crema:#15171a; --testo:#e8e6e1;
+    --grigio:#9a9a9a; --rosso:#e07568; --rosso-chiaro:#3d2320; --giallo:#e0a838;
+    --card:#1f2225; --bordo:#33373b; --blu:#6fa3c7; --input:#26292d; --ombra:rgba(0,0,0,.4);
+  }
+}
+:root[data-tema="scuro"]{
+  --verde:#4db6a0; --verde-chiaro:#1e3d37; --crema:#15171a; --testo:#e8e6e1;
+  --grigio:#9a9a9a; --rosso:#e07568; --rosso-chiaro:#3d2320; --giallo:#e0a838;
+  --card:#1f2225; --bordo:#33373b; --blu:#6fa3c7; --input:#26292d; --ombra:rgba(0,0,0,.4);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0; padding:0; background:var(--crema); color:var(--testo);
+  font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; font-size:18px;}
+body{padding-bottom:90px;}
+h1{font-size:1.35rem; margin:0;}
+h2{font-size:1.15rem; margin:0 0 10px 0; color:var(--verde);}
+.header{background:var(--verde); color:#fff; padding:14px 16px; display:flex;
+  align-items:center; justify-content:space-between; position:sticky; top:0; z-index:20;}
+.header select{font-size:1rem; border-radius:10px; border:none; padding:8px 10px; background:#fff; color:var(--testo); max-width:45%;}
+.contenuto{max-width:640px; margin:0 auto; padding:14px;}
+.card{background:var(--card); border:1px solid var(--bordo); border-radius:16px;
+  padding:16px; margin-bottom:14px; box-shadow:0 1px 3px var(--ombra);}
+.riga-data{display:flex; align-items:center; justify-content:space-between; margin:4px 0 14px 0;}
+.riga-data .titolo-data{font-weight:700; font-size:1.1rem; text-align:center; flex:1;}
+.btn{display:inline-block; border:2px solid var(--bordo); background:var(--input); color:var(--testo);
+  border-radius:14px; padding:12px 16px; font-size:1rem; cursor:pointer; min-height:48px;}
+.btn:active{transform:scale(.97);}
+.btn-verde{background:var(--verde); border-color:var(--verde); color:#fff; font-weight:600;}
+.btn-freccia{width:48px; font-size:1.2rem; font-weight:700;}
+.btn-piccolo{padding:8px 12px; min-height:40px; font-size:.95rem;}
+.scala{display:flex; gap:8px; justify-content:space-between;}
+.scala button{flex:1; font-size:1.7rem; padding:10px 0; min-height:56px; border:2px solid var(--bordo);
+  border-radius:14px; background:var(--input); color:var(--testo); cursor:pointer;}
+.scala button.attivo{border-color:var(--verde); background:var(--verde-chiaro);}
+.scala-num button{font-size:1.15rem; font-weight:700;}
+.etichette{display:flex; justify-content:space-between; font-size:.8rem; color:var(--grigio); margin-top:4px;}
+.chips{display:flex; flex-wrap:wrap; gap:8px;}
+.chip{border:2px solid var(--bordo); background:var(--input); color:var(--testo); border-radius:999px; padding:10px 16px;
+  font-size:1rem; cursor:pointer; min-height:44px;}
+.chip.attivo{border-color:var(--rosso); background:var(--rosso-chiaro); font-weight:600;}
+.chip.attivo-verde{border-color:var(--verde); background:var(--verde-chiaro); font-weight:600;}
+.sotto{font-size:.9rem; color:var(--grigio); margin-top:6px;}
+.peso-box{display:flex; align-items:center; gap:10px; justify-content:center;}
+.peso-box input{width:120px; font-size:1.6rem; text-align:center; padding:10px; border:2px solid var(--bordo); border-radius:14px; background:var(--input); color:var(--testo);}
+.peso-box .btn{font-size:1.4rem; width:56px;}
+.pasto{border-top:1px solid var(--bordo); padding:12px 0;}
+.pasto:first-of-type{border-top:none;}
+.pasto .nome{font-weight:700; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;}
+.pasto .nome input[type=time]{font-size:1rem; padding:6px; border:2px solid var(--bordo); border-radius:10px;}
+.dettagli-btn{width:100%; text-align:left; background:none; border:none; font-size:1rem;
+  color:var(--blu); padding:6px 0; cursor:pointer; font-weight:600;}
+.nascosto{display:none;}
+.toggle-riga{display:flex; align-items:center; justify-content:space-between; padding:10px 0;}
+.interruttore{position:relative; width:58px; height:32px; flex-shrink:0;}
+.interruttore input{opacity:0; width:0; height:0;}
+.slider{position:absolute; inset:0; background:#ccc; border-radius:999px; transition:.2s; cursor:pointer;}
+.slider:before{content:""; position:absolute; height:26px; width:26px; left:3px; top:3px;
+  background:#fff; border-radius:50%; transition:.2s;}
+input:checked + .slider{background:var(--verde);}
+input:checked + .slider:before{transform:translateX(26px);}
+textarea{width:100%; border:2px solid var(--bordo); border-radius:14px; padding:12px; font-size:1rem; font-family:inherit; min-height:70px; background:var(--input); color:var(--testo);}
+input[type=time]{font-family:inherit;}
+input[type=number],input[type=time],input[type=date],input[type=email],input[type=password],input[type=text]{background:var(--input); color:var(--testo);}
+select{background:var(--input); color:var(--testo);}
+.nav{position:fixed; bottom:0; left:0; right:0; background:var(--card); border-top:1px solid var(--bordo);
+  display:flex; z-index:30; padding-bottom:env(safe-area-inset-bottom);}
+.nav button{flex:1; background:none; border:none; padding:10px 4px 8px 4px; font-size:.8rem;
+  color:var(--grigio); cursor:pointer;}
+.nav button .icona{display:block; font-size:1.5rem; margin-bottom:2px;}
+.nav button.attivo{color:var(--verde); font-weight:700;}
+.banner{background:var(--giallo); color:#5a4300; border-radius:14px; padding:14px; margin-bottom:14px;
+  font-size:1rem; cursor:pointer; font-weight:600;}
+.banner-verde{background:var(--verde-chiaro); color:var(--verde); cursor:default;}
+.toast{position:fixed; bottom:100px; left:50%; transform:translateX(-50%); background:var(--verde);
+  color:#fff; padding:10px 22px; border-radius:999px; font-weight:600; z-index:50; opacity:0; transition:opacity .3s; pointer-events:none;}
+.toast.visibile{opacity:1;}
+.calendario{display:grid; grid-template-columns:repeat(7,1fr); gap:6px;}
+.calendario .intestazione{text-align:center; font-size:.8rem; color:var(--grigio); font-weight:700;}
+.giorno{aspect-ratio:1; border-radius:12px; display:flex; align-items:center; justify-content:center;
+  font-size:1rem; border:2px solid transparent; cursor:pointer; background:var(--input); color:var(--grigio);}
+.giorno.compilato{background:var(--verde-chiaro); color:var(--verde); font-weight:700;}
+.giorno.mancante{background:var(--rosso-chiaro); color:var(--rosso); font-weight:700;}
+.giorno.futuro{opacity:.35; cursor:default;}
+.giorno.oggi{border-color:var(--verde);}
+.legenda{display:flex; gap:16px; margin-top:12px; font-size:.85rem; color:var(--grigio); flex-wrap:wrap;}
+.pallino{display:inline-block; width:14px; height:14px; border-radius:50%; vertical-align:-2px; margin-right:4px;}
+.mese-nav{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;}
+.mese-nav .nome-mese{font-weight:700; font-size:1.1rem;}
+canvas{width:100%; height:220px;}
+.selettore-grafico{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;}
+.correlazione{border-left:5px solid var(--rosso); background:var(--rosso-chiaro); border-radius:0 12px 12px 0;
+  padding:12px; margin-bottom:10px; font-size:1rem;}
+.correlazione.positiva{border-left-color:var(--verde); background:var(--verde-chiaro);}
+.correlazione .forza{font-size:.85rem; color:var(--grigio); margin-top:4px;}
+.avviso{font-size:.85rem; color:var(--grigio); font-style:italic; margin-top:14px;}
+.riga-profilo{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--bordo);}
+.streak{background:rgba(255,255,255,.2); border-radius:999px; padding:6px 12px; font-size:.9rem; font-weight:700;}
+.sezione-scala{margin-bottom:18px;}
+.sezione-scala .nome-scala{font-weight:700; margin-bottom:8px;}
+.tre-bottoni{display:flex; gap:8px;}
+.tre-bottoni .chip{flex:1; text-align:center;}
+.form-riga{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;}
+.form-riga input[type=text],.form-riga input[type=number],.form-riga input[type=date],
+.form-riga input[type=email],.form-riga input[type=password],.form-riga select{
+  flex:1; min-width:130px; padding:10px; font-size:1rem; border:2px solid var(--bordo); border-radius:12px; font-family:inherit; background:var(--input); color:var(--testo);}
+.elemento-lista{border:1px solid var(--bordo); border-radius:12px; padding:10px 12px; margin-bottom:8px; background:var(--card);}
+.elemento-lista .titolo{font-weight:700; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;}
+.badge{display:inline-block; border-radius:999px; padding:3px 10px; font-size:.75rem; font-weight:700; color:#fff;}
+.giorno{position:relative;}
+.punti-giorno{display:flex; gap:3px; justify-content:center; position:absolute; bottom:4px; left:0; right:0;}
+.punto{width:6px; height:6px; border-radius:50%; display:inline-block;}
+.previsione{border-radius:14px; padding:14px; margin-bottom:10px; font-size:1rem;}
+.consiglio{border-left:5px solid var(--blu); background:#edf3f8; border-radius:0 12px 12px 0; padding:12px; margin-bottom:10px; font-size:.98rem;}
+.stat-griglia{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.stat-box{background:var(--verde-chiaro); border-radius:12px; padding:12px; text-align:center;}
+.stat-box .numero{font-size:1.35rem; font-weight:800; color:var(--verde);}
+.stat-box .nome-stat{font-size:.82rem; color:var(--grigio); margin-top:2px;}
+.stato-sync{font-size:.9rem; margin-top:8px; color:var(--grigio);}
+.pastiglia-colore{display:inline-block; width:20px; height:20px; border-radius:50%; border:1px solid rgba(128,128,128,.4); vertical-align:-4px; margin-right:6px;}
+.contatore-acqua{display:flex; align-items:center; justify-content:center; gap:14px;}
+.contatore-acqua .valore{font-size:2rem; font-weight:800; min-width:120px; text-align:center; color:var(--blu);}
+.contatore-acqua .btn{font-size:1.5rem; width:56px;}
+.barra-acqua{background:var(--bordo); border-radius:999px; height:12px; overflow:hidden; margin:10px 0 4px;}
+.barra-acqua > div{background:var(--blu); height:100%; transition:width .2s;}
+.tipo-attivita{margin-top:10px;}
+.tipo-attivita input{width:100%; padding:10px; font-size:1rem; border:2px solid var(--bordo); border-radius:12px; font-family:inherit; background:var(--input); color:var(--testo);}
+pre.sql{background:#f0ede6; border-radius:12px; padding:12px; font-size:.75rem; overflow-x:auto; white-space:pre-wrap;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🌱 Find Your Good</h1>
+  <div style="display:flex; gap:10px; align-items:center;">
+    <span class="streak" id="streak"></span>
+    <select id="selettore-profilo" onchange="cambiaProfilo(this.value)"></select>
+  </div>
+</div>
+
+<div class="contenuto" id="app"></div>
+
+<div class="nav">
+  <button id="nav-oggi" onclick="vai('oggi')"><span class="icona">📝</span>Oggi</button>
+  <button id="nav-diario" onclick="vai('diario')"><span class="icona">📅</span>Diario</button>
+  <button id="nav-analisi" onclick="vai('analisi')"><span class="icona">📊</span>Analisi</button>
+  <button id="nav-salute" onclick="vai('salute')"><span class="icona">💊</span>Salute</button>
+  <button id="nav-impostazioni" onclick="vai('impostazioni')"><span class="icona">⚙️</span>Altro</button>
+</div>
+
+<div class="toast" id="toast">Salvato ✓</div>
+
+<script>
+"use strict";
+/* ============ DATI E STATO ============ */
+const CHIAVE = "fyg_v1";
+let S = carica();
+let vista = "oggi";
+let dataInModifica = oggi();
+let meseDiario = oggi().slice(0,7); // "AAAA-MM"
+
+function carica(){
+  try{
+    const raw = localStorage.getItem(CHIAVE);
+    if(raw){ const s=JSON.parse(raw); if(!s.salute) s.salute={};
+      if(!s.impostazioni) s.impostazioni={}; if(s.impostazioni.tema==null) s.impostazioni.tema="auto";
+      return s; }
+  }catch(e){}
+  const id = "p" + Date.now();
+  return { profili:[{id:id, nome:"Io"}], profiloCorrente:id, voci:{}, salute:{}, impostazioni:{oraPromemoria:"20:00", tema:"auto"} };
+}
+function applicaTema(){
+  const t=(S.impostazioni&&S.impostazioni.tema)||"auto";
+  const html=document.documentElement;
+  if(t==="chiaro") html.setAttribute("data-tema","chiaro");
+  else if(t==="scuro") html.setAttribute("data-tema","scuro");
+  else html.removeAttribute("data-tema");
+  // aggiorna il colore della barra del browser
+  const scuroAttivo = t==="scuro" || (t==="auto" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const meta=document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.setAttribute("content", scuroAttivo ? "#15171a" : "#2e7d6b");
+}
+function impostaTema(t){ S.impostazioni.tema=t; localStorage.setItem(CHIAVE, JSON.stringify(S)); applicaTema(); render(); }
+function salva(){
+  localStorage.setItem(CHIAVE, JSON.stringify(S));
+  mostraToast();
+  pianificaPush();
+}
+function esc(t){ return String(t==null?"":t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+let toastTimer=null;
+function mostraToast(testo){
+  const t=document.getElementById("toast");
+  t.textContent = testo || "Salvato ✓";
+  t.classList.add("visibile");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove("visibile"), 1200);
+}
+function oggi(){ return fmtData(new Date()); }
+function fmtData(d){
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function dataBella(iso){
+  const [a,m,g]=iso.split("-").map(Number);
+  const d=new Date(a,m-1,g);
+  const giorni=["Domenica","Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato"];
+  const mesi=["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+  const pre = iso===oggi() ? "Oggi, " : (iso===spostaGiorni(oggi(),-1) ? "Ieri, " : "");
+  return pre + giorni[d.getDay()]+" "+g+" "+mesi[m-1];
+}
+function spostaGiorni(iso, n){
+  const [a,m,g]=iso.split("-").map(Number);
+  const d=new Date(a,m-1,g); d.setDate(d.getDate()+n);
+  return fmtData(d);
+}
+function vociProfilo(){
+  if(!S.voci[S.profiloCorrente]) S.voci[S.profiloCorrente]={};
+  return S.voci[S.profiloCorrente];
+}
+function voce(data){
+  const v=vociProfilo();
+  if(!v[data]) v[data]={ pasti:{}, sintomi:[], attivita:[] };
+  if(!v[data].pasti) v[data].pasti={};
+  if(!v[data].sintomi) v[data].sintomi=[];
+  if(!v[data].attivita) v[data].attivita=[];
+  if(!v[data].attivitaTipo) v[data].attivitaTipo={};
+  return v[data];
+}
+function compilato(data){
+  const v=vociProfilo()[data];
+  if(!v) return false;
+  return v.umore!=null || v.stress!=null || v.peso!=null || v.sonnoQ!=null ||
+    v.temperatura!=null || v.stanchezza!=null || v.sonnolenza!=null || v.sole!=null ||
+    v.acqua!=null || v.urina!=null || v.feci!=null || v.occhi!=null ||
+    (v.sintomi&&v.sintomi.length>0) || (v.attivita&&v.attivita.length>0) ||
+    Object.keys(v.pasti||{}).length>0 || (v.note&&v.note.trim()!=="");
+}
+function imposta(campo, valore){
+  const v=voce(dataInModifica);
+  v[campo] = (v[campo]===valore && typeof valore==="number") ? null : valore;
+  v.agg=Date.now();
+  salva(); render();
+}
+function togglaLista(campo, chiave){
+  const v=voce(dataInModifica);
+  const i=v[campo].indexOf(chiave);
+  if(i>=0) v[campo].splice(i,1); else v[campo].push(chiave);
+  v.agg=Date.now();
+  salva(); render();
+}
+function impostaPasto(pasto, campo, valore){
+  const v=voce(dataInModifica);
+  if(!v.pasti[pasto]) v.pasti[pasto]={};
+  if(campo==="q" && v.pasti[pasto].q===valore) v.pasti[pasto].q=null;
+  else v.pasti[pasto][campo]=valore;
+  v.agg=Date.now();
+  salva(); render();
+}
+function saluteProfilo(){
+  if(!S.salute) S.salute={};
+  if(!S.salute[S.profiloCorrente]) S.salute[S.profiloCorrente]={};
+  const sp=S.salute[S.profiloCorrente];
+  for(const k of ["farmaci","visite","notizie","ipotesi"]) if(!sp[k]) sp[k]=[];
+  return sp;
+}
+
+/* ============ COSTANTI ============ */
+const UMORE_EMOJI=["😞","😕","😐","🙂","😄"];
+const STRESS_EMOJI=["😌","🙂","😐","😣","🤯"];
+const SONNO_EMOJI=["😫","😩","😐","😊","😴"];
+const PASTI=[["colazione","🍞 Colazione"],["pranzo","🍝 Pranzo"],["cena","🍲 Cena"],["merenda","🍎 Merende"]];
+const QUANTITA=[["saltato","Saltato"],["poco","Poco"],["normale","Normale"],["belPo","Un bel po'"],["troppo","Troppo"]];
+const SOLE=[["zero","🚫 Niente"],["q15","Meno di 15 min"],["q30","15-30 min"],["q30p","Più di 30 min"]];
+function soleSufficiente(v){ return v.sole==="q30p" || (v.sole==="q30" && !v.nuvoloso); }
+const SINTOMI=[["malTesta","🤕 Mal di testa"],["malPancia","🤢 Mal di pancia"],["dolori","💢 Dolori"],
+  ["fastidi","😖 Fastidi"],["allergie","🤧 Allergie forti"],["malattia","🤒 Malattia"],
+  ["ferita","🩹 Ferita"],["freddo","🥶 Preso freddo"]];
+const ATTIVITA=[["meditazione","🧘 Meditazione"],["respirazione","🌬️ Respirazione"],["sport","🏃 Attività fisica"],
+  ["pisolino","💤 Pisolino"],["sauna","💆 Sauna/Trattamenti"],["vacanza","🏖️ Vacanza/Riposo"]];
+const OBIETTIVO_ACQUA=8; // bicchieri da ~250 ml
+const URINA=[["u1","Trasparente","#f2f4d0"],["u2","Giallo pallido","#f5ec6a"],["u3","Giallo","#efd41c"],
+  ["u4","Giallo scuro","#e0b60f"],["u5","Ambra","#c9930a"],["u6","Marrone/insolito","#7a4d06"]];
+const FECI=[["f_marrone","Marrone (normale)","#7a4a1e"],["f_giallo","Giallastra","#d3b24a"],["f_verde","Verde","#5f8a3c"],
+  ["f_chiara","Chiara/argilla","#cfc3a5"],["f_nera","Nera/scura","#2b2320"],["f_rossa","Rossastra","#a83232"]];
+const OCCHI=[["o_no","🙂 Bianchi (normali)"],["o_lieve","😐 Leggero giallore"],["o_marcato","⚠️ Giallo evidente"]];
+const ESEMPI_TIPO={
+  meditazione:["Mindfulness","Vipassana","Trascendentale","Guidata","Body scan"],
+  respirazione:["4-7-8","Respiro diaframmatico","Box breathing","Wim Hof","Coerenza cardiaca"],
+  sport:["Camminata","Corsa","Palestra","Bici","Nuoto","Yoga","Pesi","Stretching"],
+  pisolino:["Power nap 20 min","Pisolino 30 min","Riposo pomeridiano"],
+  sauna:["Sauna","Bagno turco","Massaggio","Idromassaggio","Crioterapia"],
+  vacanza:["Giornata di riposo","Weekend fuori","Ferie","Relax a casa"]
+};
+
+/* ============ NAVIGAZIONE ============ */
+function vai(v){
+  vista=v;
+  if(v==="oggi") dataInModifica=oggi();
+  render();
+  window.scrollTo(0,0);
+}
+function render(){
+  ["oggi","diario","analisi","salute","impostazioni"].forEach(v=>{
+    document.getElementById("nav-"+v).classList.toggle("attivo", vista===v);
+  });
+  aggiornaProfiliUI();
+  const app=document.getElementById("app");
+  if(vista==="oggi") app.innerHTML=vistaOggi();
+  else if(vista==="diario") app.innerHTML=vistaDiario();
+  else if(vista==="analisi"){ app.innerHTML=vistaAnalisi(); disegnaGrafico(); }
+  else if(vista==="salute") app.innerHTML=vistaSalute();
+  else app.innerHTML=vistaImpostazioni();
+}
+function aggiornaProfiliUI(){
+  const sel=document.getElementById("selettore-profilo");
+  sel.innerHTML=S.profili.map(p=>`<option value="${p.id}" ${p.id===S.profiloCorrente?"selected":""}>👤 ${p.nome}</option>`).join("");
+  document.getElementById("streak").textContent="🔥 "+calcolaStreak();
+}
+function cambiaProfilo(id){ S.profiloCorrente=id; localStorage.setItem(CHIAVE, JSON.stringify(S)); dataInModifica=oggi(); render(); }
+function calcolaStreak(){
+  let n=0, d=oggi();
+  if(!compilato(d)) d=spostaGiorni(d,-1);
+  while(compilato(d)){ n++; d=spostaGiorni(d,-1); }
+  return n;
+}
+function giorniMancanti(){
+  const v=vociProfilo();
+  const date=Object.keys(v).filter(d=>compilato(d)).sort();
+  if(date.length===0) return [];
+  const mancanti=[];
+  let d=date[0];
+  const stop=oggi();
+  while(d<stop){
+    if(!compilato(d)) mancanti.push(d);
+    d=spostaGiorni(d,1);
+  }
+  return mancanti.slice(-30);
+}
+
+/* ============ VISTA OGGI ============ */
+function scala(campo, valore, emoji, etichette){
+  let b="";
+  for(let i=1;i<=5;i++){
+    b+=`<button class="${valore===i?'attivo':''}" onclick="imposta('${campo}',${i})">${emoji?emoji[i-1]:i}</button>`;
+  }
+  return `<div class="scala ${emoji?'':'scala-num'}">${b}</div>
+    <div class="etichette"><span>${etichette[0]}</span><span>${etichette[1]}</span></div>`;
+}
+function vistaOggi(){
+  const v=voce(dataInModifica);
+  const mancanti=giorniMancanti();
+  const eOggi=dataInModifica===oggi();
+  let h="";
+  if(eOggi && mancanti.length>0){
+    h+=`<div class="banner" onclick="dataInModifica='${mancanti[mancanti.length-1]}';render();window.scrollTo(0,0);">
+      ⚠️ Hai ${mancanti.length} giorn${mancanti.length===1?"o":"i"} da compilare. Tocca qui per recuperare.</div>`;
+  }
+  if(!eOggi){
+    h+=`<div class="banner banner-verde">✍️ Stai compilando un giorno passato.
+      <button class="btn btn-piccolo" style="margin-left:8px" onclick="dataInModifica=oggi();render()">Torna a oggi</button></div>`;
+  }
+  h+=`<div class="riga-data">
+    <button class="btn btn-freccia" onclick="dataInModifica=spostaGiorni(dataInModifica,-1);render()">‹</button>
+    <div class="titolo-data">${dataBella(dataInModifica)}</div>
+    <button class="btn btn-freccia" ${dataInModifica>=oggi()?"disabled style='opacity:.3'":""} onclick="dataInModifica=spostaGiorni(dataInModifica,1);render()">›</button>
+  </div>`;
+
+  // Come stai
+  h+=`<div class="card"><h2>Come stai?</h2>
+    <div class="sezione-scala"><div class="nome-scala">Umore</div>${scala("umore",v.umore,UMORE_EMOJI,["Malissimo","Benissimo"])}</div>
+    <div class="sezione-scala"><div class="nome-scala">Stress</div>${scala("stress",v.stress,STRESS_EMOJI,["Rilassato","Altissimo"])}</div>
+    <div class="sezione-scala" style="margin-bottom:0"><div class="nome-scala">Quanti pensieri hai in testa?</div>${scala("mente",v.mente,null,["Mente libera","Affollatissima"])}</div>
+  </div>`;
+
+  // Peso
+  h+=`<div class="card"><h2>⚖️ Peso</h2>
+    <div class="peso-box">
+      <button class="btn" onclick="modificaPeso(-0.1)">−</button>
+      <input type="number" step="0.1" inputmode="decimal" value="${v.peso!=null?v.peso:""}" placeholder="kg"
+        onchange="impostaPesoDiretto(this.value)">
+      <button class="btn" onclick="modificaPeso(0.1)">+</button>
+    </div>
+    <div class="sotto" style="text-align:center">Pesati sempre alla stessa ora, es. appena sveglio.</div>
+  </div>`;
+
+  // Sonno
+  h+=`<div class="card"><h2>😴 Sonno (notte scorsa)</h2>
+    <div class="sezione-scala"><div class="nome-scala">Com'era la qualità?</div>${scala("sonnoQ",v.sonnoQ,SONNO_EMOJI,["Pessima","Ottima"])}</div>
+    <button class="dettagli-btn" onclick="togglaSezione('dett-sonno')">🕐 Orari (facoltativo) ▾</button>
+    <div id="dett-sonno" class="${v.oraDormire||v.oraSveglia?"":"nascosto"}">
+      <div class="toggle-riga"><span>Sono andato a dormire alle</span>
+        <input type="time" value="${v.oraDormire||""}" onchange="imposta('oraDormire',this.value)"></div>
+      <div class="toggle-riga"><span>Mi sono svegliato alle</span>
+        <input type="time" value="${v.oraSveglia||""}" onchange="imposta('oraSveglia',this.value)"></div>
+    </div>
+  </div>`;
+
+  // Corpo e ambiente
+  h+=`<div class="card"><h2>🌤️ Corpo e ambiente</h2>
+    <div class="toggle-riga"><span>🌡️ Temperatura di oggi (°C)</span>
+      <input type="number" inputmode="decimal" style="width:90px;font-size:1.1rem;padding:8px;border:2px solid var(--bordo);border-radius:12px;text-align:center"
+        value="${v.temperatura!=null?v.temperatura:""}" placeholder="°C" onchange="impostaTemperatura(this.value)"></div>
+    <div class="sezione-scala"><div class="nome-scala">🥱 Stanchezza</div>${scala("stanchezza",v.stanchezza,null,["Pieno di energie","Esausto"])}</div>
+    <div class="sezione-scala"><div class="nome-scala">💤 Sonnolenza durante il giorno</div>${scala("sonnolenza",v.sonnolenza,null,["Sveglissimo","Crollavo"])}</div>
+    <div class="nome-scala" style="font-weight:700;margin-bottom:8px">☀️ Sole preso oggi</div>
+    <div class="chips">${SOLE.map(([k,n])=>`<button class="chip ${v.sole===k?"attivo-verde":""}" onclick="imposta('sole','${k}')">${n}</button>`).join("")}</div>
+    <div class="toggle-riga"><span>☁️ Giornata nuvolosa?</span>
+      <label class="interruttore"><input type="checkbox" ${v.nuvoloso?"checked":""} onchange="imposta('nuvoloso',this.checked)"><span class="slider"></span></label></div>
+    <div class="sotto">Obiettivo: almeno 15 minuti di sole al giorno, 30 se è nuvoloso.</div>
+  </div>`;
+
+  // Idratazione e segnali del corpo
+  {
+    const bicch=v.acqua||0;
+    const pctAcqua=Math.min(100, Math.round(bicch/OBIETTIVO_ACQUA*100));
+    let msgAcqua;
+    if(bicch===0) msgAcqua="Tocca + ogni volta che bevi un bicchiere d'acqua.";
+    else if(bicch<OBIETTIVO_ACQUA) msgAcqua=`Ancora ${OBIETTIVO_ACQUA-bicch} bicchier${OBIETTIVO_ACQUA-bicch===1?"e":"i"} per l'obiettivo.`;
+    else msgAcqua="Ottimo, obiettivo raggiunto! 💧";
+    h+=`<div class="card"><h2>💧 Idratazione e segnali del corpo</h2>
+      <div class="nome-scala" style="font-weight:700;margin-bottom:8px">Acqua bevuta (bicchieri da ~250 ml)</div>
+      <div class="contatore-acqua">
+        <button class="btn" onclick="modificaAcqua(-1)">−</button>
+        <div class="valore">${bicch} 💧</div>
+        <button class="btn" onclick="modificaAcqua(1)">+</button>
+      </div>
+      <div class="barra-acqua"><div style="width:${pctAcqua}%"></div></div>
+      <div class="sotto" style="text-align:center">${msgAcqua} Obiettivo indicativo: ${OBIETTIVO_ACQUA} bicchieri (~2 litri).</div>
+
+      <div class="nome-scala" style="font-weight:700;margin:16px 0 8px">🚻 Colore dell'urina</div>
+      <div class="chips">${URINA.map(([k,n,c])=>`<button class="chip ${v.urina===k?"attivo-verde":""}" onclick="imposta('urina','${k}')"><span class="pastiglia-colore" style="background:${c}"></span>${n}</button>`).join("")}</div>
+      <div class="sotto">${v.urina?notaUrina(v.urina):"Più l'urina è chiara, meglio sei idratato. È un ottimo segnale del corpo."}</div>
+
+      <div class="nome-scala" style="font-weight:700;margin:16px 0 8px">💩 Colore delle feci</div>
+      <div class="chips">${FECI.map(([k,n,c])=>`<button class="chip ${v.feci===k?"attivo-verde":""}" onclick="imposta('feci','${k}')"><span class="pastiglia-colore" style="background:${c}"></span>${n}</button>`).join("")}</div>
+      ${v.feci?`<div class="sotto">${notaFeci(v.feci)}</div>`:""}
+
+      <div class="nome-scala" style="font-weight:700;margin:16px 0 8px">👁️ Giallore degli occhi</div>
+      <div class="chips">${OCCHI.map(([k,n])=>`<button class="chip ${v.occhi===k?(k==="o_no"?"attivo-verde":"attivo"):""}" onclick="imposta('occhi','${k}')">${n}</button>`).join("")}</div>
+      ${v.occhi==="o_marcato"?`<div class="sotto">⚠️ Un giallore evidente di occhi o pelle va sempre mostrato a un medico (può riguardare fegato o bilirubina).</div>`:`<div class="sotto">Un colore giallo di occhi o pelle (ittero) è un segnale da non ignorare.</div>`}
+    </div>`;
+  }
+
+  // Pasti
+  h+=`<div class="card"><h2>🍽️ Pasti</h2>`;
+  for(const [pk,pn] of PASTI){
+    const p=v.pasti[pk]||{};
+    h+=`<div class="pasto">
+      <div class="nome"><span>${pn}</span>
+        <input type="time" value="${p.ora||""}" onchange="impostaPasto('${pk}','ora',this.value)" title="Orario"></div>
+      <div class="chips">`;
+    for(const [qk,qn] of QUANTITA){
+      h+=`<button class="chip ${p.q===qk?"attivo-verde":""}" onclick="impostaPasto('${pk}','q','${qk}')">${qn}</button>`;
+    }
+    h+=`<button class="chip ${p.ecc?"attivo":""}" onclick="impostaPasto('${pk}','ecc',${p.ecc?"false":"true"})">⚠️ Eccezione dieta</button>
+      </div></div>`;
+  }
+  h+=`<div class="sotto">"Eccezione dieta" = hai mangiato qualcosa fuori dalla tua dieta abituale.</div></div>`;
+
+  // Sintomi
+  h+=`<div class="card"><h2>🩺 Disturbi di oggi</h2><div class="chips">`;
+  for(const [sk,sn] of SINTOMI){
+    h+=`<button class="chip ${v.sintomi.includes(sk)?"attivo":""}" onclick="togglaLista('sintomi','${sk}')">${sn}</button>`;
+  }
+  h+=`</div>`;
+  if(v.sintomi.includes("ferita")){
+    h+=`<div class="toggle-riga"><span>La ferita cicatrizza lentamente?</span>
+      <label class="interruttore"><input type="checkbox" ${v.feritaLenta?"checked":""} onchange="imposta('feritaLenta',this.checked)"><span class="slider"></span></label></div>
+    <div class="sotto">Se le ferite guariscono lentamente, parlane col medico (possibile carenza di vitamina K o rischio infezioni).</div>`;
+  }
+  h+=`<div class="sotto">Non selezionare niente = giornata senza disturbi 🎉</div></div>`;
+
+  // Attività
+  h+=`<div class="card"><h2>🌿 Cura di te (oggi)</h2><div class="chips">`;
+  for(const [ak,an] of ATTIVITA){
+    h+=`<button class="chip ${v.attivita.includes(ak)?"attivo-verde":""}" onclick="togglaLista('attivita','${ak}')">${an}</button>`;
+  }
+  h+=`</div>`;
+  if(v.attivita.includes("pisolino")){
+    h+=`<div class="toggle-riga"><span>Pisolino subito dopo un pasto?</span>
+      <label class="interruttore"><input type="checkbox" ${v.pisolinoDopoPasto?"checked":""} onchange="imposta('pisolinoDopoPasto',this.checked)"><span class="slider"></span></label></div>
+    <div class="sotto">Sdraiarsi subito dopo mangiato può disturbare la digestione.</div>`;
+  }
+  // Tipo/nome dell'attività (facoltativo) con suggerimenti dallo storico
+  for(const [ak,an] of ATTIVITA){
+    if(!v.attivita.includes(ak)) continue;
+    const tipo=(v.attivitaTipo&&v.attivitaTipo[ak])||"";
+    const sugg=suggerimentiTipo(ak);
+    h+=`<div class="tipo-attivita">
+      <label class="sotto" style="display:block;margin-bottom:4px">${an} — che tipo? <span style="opacity:.7">(facoltativo)</span></label>
+      <input type="text" list="dl-${ak}" value="${esc(tipo)}" placeholder="Es. ${esc(sugg[0]||"scrivi qui")}" onchange="impostaTipoAttivita('${ak}',this.value)">
+      <datalist id="dl-${ak}">${sugg.map(s=>`<option value="${esc(s)}"></option>`).join("")}</datalist>
+    </div>`;
+  }
+  h+=`</div>`;
+
+  // Salute del giorno (farmaci attivi, visite, notizie)
+  {
+    const sp=saluteProfilo();
+    const fAtt=sp.farmaci.filter(f=>dataInModifica>=f.dal&&(!f.al||dataInModifica<=f.al));
+    const vG=sp.visite.filter(x=>x.data===dataInModifica);
+    const nG=sp.notizie.filter(x=>x.data===dataInModifica);
+    h+=`<div class="card"><h2>💊 Salute in questo giorno</h2>`;
+    if(fAtt.length===0&&vG.length===0&&nG.length===0) h+=`<div class="sotto" style="margin-top:0">Nessun farmaco, visita o notizia registrata per questo giorno.</div>`;
+    for(const f of fAtt) h+=`<div class="elemento-lista">💊 <b>${esc(f.nome)}</b> ${f.dose?"— "+esc(f.dose):""} <span class="sotto" style="display:inline">(in corso)</span></div>`;
+    for(const x of vG) h+=`<div class="elemento-lista">🩺 <b>${esc(x.testo)}</b>${x.invasivo?' <span class="badge" style="background:var(--rosso)">invasivo</span>':""}</div>`;
+    for(const x of nG) h+=`<div class="elemento-lista">${x.tipo==="buona"?"📬✨":"📬⛈️"} ${esc(x.testo)}</div>`;
+    h+=`<button class="chip" style="margin-top:6px" onclick="vai('salute')">➕ Gestisci farmaci, visite e notizie</button></div>`;
+  }
+
+  // Extra
+  h+=`<div class="card">
+    <button class="dettagli-btn" onclick="togglaSezione('dett-extra')">➕ Altri dettagli (facoltativi) ▾</button>
+    <div id="dett-extra" class="nascosto">
+      <div class="sezione-scala" style="margin-top:10px"><div class="nome-scala">Quanto sei stato fermo/seduto?</div>${scala("sedentarieta",v.sedentarieta,null,["Sempre in movimento","Tutto il giorno fermo"])}</div>
+      <div class="sezione-scala"><div class="nome-scala">🪥 Lavaggi denti</div>
+        <div class="tre-bottoni">
+          ${[0,1,2].map(n=>`<button class="chip ${v.denti===n?"attivo-verde":""}" onclick="imposta('denti',${n})">${n===2?"2 o più":n}</button>`).join("")}
+        </div></div>
+      <div class="toggle-riga"><span>Giornata in pessime condizioni igieniche?</span>
+        <label class="interruttore"><input type="checkbox" ${v.igienePessima?"checked":""} onchange="imposta('igienePessima',this.checked)"><span class="slider"></span></label></div>
+      <div class="nome-scala" style="font-weight:700; margin:10px 0 8px 0">📝 Note libere</div>
+      <textarea placeholder="Qualsiasi cosa vuoi ricordare di oggi..." onchange="imposta('note',this.value)">${esc(v.note)}</textarea>
+    </div>
+  </div>`;
+
+  h+=`<div style="text-align:center; margin:20px 0">
+    <button class="btn btn-verde" style="font-size:1.15rem; padding:16px 40px" onclick="mostraToast('Giornata salvata ✓');vai('diario')">✓ Ho finito per ${dataInModifica===oggi()?"oggi":"questo giorno"}</button>
+    <div class="sotto" style="margin-top:8px">Tutto si salva da solo mentre compili.</div>
+  </div>`;
+  return h;
+}
+function togglaSezione(id){ document.getElementById(id).classList.toggle("nascosto"); }
+function impostaTipoAttivita(ak, val){
+  const v=voce(dataInModifica);
+  if(!v.attivitaTipo) v.attivitaTipo={};
+  const t=String(val||"").trim();
+  if(t) v.attivitaTipo[ak]=t; else delete v.attivitaTipo[ak];
+  v.agg=Date.now();
+  salva();
+}
+function suggerimentiTipo(ak){
+  const voci=vociProfilo();
+  const conta={};
+  for(const d in voci){
+    const t=voci[d].attivitaTipo && voci[d].attivitaTipo[ak];
+    if(t){ const k=String(t).trim(); if(k) conta[k]=(conta[k]||0)+1; }
+  }
+  const storico=Object.entries(conta).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+  const esempi=(ESEMPI_TIPO[ak]||[]).filter(e=>!storico.some(s=>s.toLowerCase()===e.toLowerCase()));
+  return storico.concat(esempi);
+}
+function modificaPeso(delta){
+  const v=voce(dataInModifica);
+  let base=v.peso;
+  if(base==null){
+    // ultimo peso registrato
+    const voci=vociProfilo();
+    const date=Object.keys(voci).filter(d=>voci[d].peso!=null).sort();
+    base = date.length? voci[date[date.length-1]].peso : 70;
+  }
+  v.peso=Math.round((base+delta)*10)/10;
+  salva(); render();
+}
+function impostaPesoDiretto(val){
+  const v=voce(dataInModifica);
+  const n=parseFloat(String(val).replace(",","."));
+  v.peso=isNaN(n)?null:Math.round(n*10)/10;
+  v.agg=Date.now();
+  salva(); render();
+}
+function impostaTemperatura(val){
+  const v=voce(dataInModifica);
+  const n=parseFloat(String(val).replace(",","."));
+  v.temperatura=isNaN(n)?null:Math.round(n*10)/10;
+  v.agg=Date.now();
+  salva(); render();
+}
+function modificaAcqua(delta){
+  const v=voce(dataInModifica);
+  let n=(v.acqua||0)+delta;
+  if(n<0) n=0; if(n>30) n=30;
+  v.acqua = n===0 ? null : n;
+  v.agg=Date.now();
+  salva(); render();
+}
+function notaUrina(k){
+  if(k==="u6") return "⚠️ Un colore marrone scuro, rosato o rosso è insolito: se persiste, parlane con un medico.";
+  if(k==="u4"||k==="u5") return "💧 Urina piuttosto scura: probabilmente sei un po' disidratato, bevi di più.";
+  return "✅ Colore chiaro: buon segno di idratazione.";
+}
+function notaFeci(k){
+  if(k==="f_nera") return "⚠️ Feci nere/molto scure (se non da ferro o cibi scuri) andrebbero valutate da un medico.";
+  if(k==="f_rossa") return "⚠️ Presenza di rosso/sangue: se si ripete, consulta un medico.";
+  if(k==="f_chiara") return "⚠️ Feci molto chiare/argilla in modo persistente vanno mostrate a un medico.";
+  if(k==="f_verde") return "Feci verdi: spesso legate a cibo o transito veloce; se persistono, valuta col medico.";
+  if(k==="f_giallo") return "Feci giallastre/unte ricorrenti possono indicare cattivo assorbimento dei grassi: valuta col medico se persiste.";
+  return "✅ Colore nella norma.";
+}
+/* ============ VISTA DIARIO ============ */
+function vistaDiario(){
+  const [anno,mese]=meseDiario.split("-").map(Number);
+  const mesi=["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+  const primo=new Date(anno,mese-1,1);
+  const nGiorni=new Date(anno,mese,0).getDate();
+  let inizio=(primo.getDay()+6)%7; // lunedì=0
+  const mancanti=new Set(giorniMancanti());
+  let h=`<div class="card">
+    <div class="mese-nav">
+      <button class="btn btn-freccia" onclick="cambiaMese(-1)">‹</button>
+      <span class="nome-mese">${mesi[mese-1]} ${anno}</span>
+      <button class="btn btn-freccia" onclick="cambiaMese(1)">›</button>
+    </div>
+    <div class="calendario">`;
+  for(const g of ["Lu","Ma","Me","Gi","Ve","Sa","Do"]) h+=`<div class="intestazione">${g}</div>`;
+  for(let i=0;i<inizio;i++) h+=`<div></div>`;
+  for(let g=1;g<=nGiorni;g++){
+    const iso=anno+"-"+String(mese).padStart(2,"0")+"-"+String(g).padStart(2,"0");
+    let cls="giorno";
+    if(iso>oggi()) cls+=" futuro";
+    else if(compilato(iso)) cls+=" compilato";
+    else if(mancanti.has(iso)) cls+=" mancante";
+    if(iso===oggi()) cls+=" oggi";
+    const click = iso>oggi() ? "" : `onclick="apriGiorno('${iso}')"`;
+    h+=`<div class="${cls}" ${click}><span>${g}</span><span class="punti-giorno">${puntiGiorno(iso)}</span></div>`;
+  }
+  h+=`</div>
+    <div class="legenda">
+      <span><span class="pallino" style="background:var(--verde-chiaro);border:2px solid var(--verde)"></span>Compilato</span>
+      <span><span class="pallino" style="background:var(--rosso-chiaro);border:2px solid var(--rosso)"></span>Da recuperare</span>
+      <span><span class="pallino" style="background:var(--rosso)"></span>Disturbi</span>
+      <span><span class="pallino" style="background:var(--blu)"></span>Visita/esame</span>
+      <span><span class="pallino" style="background:#9b59b6"></span>Notizia</span>
+      <span><span class="pallino" style="background:var(--giallo)"></span>Farmaco</span>
+    </div>
+    <div class="sotto" style="margin-top:10px">Tocca un giorno per vederlo e modificarlo.</div>
+  </div>`;
+  h+=eventiMese(anno,mese);
+  const mancantiArr=giorniMancanti();
+  if(mancantiArr.length>0){
+    h+=`<div class="banner" onclick="apriGiorno('${mancantiArr[mancantiArr.length-1]}')">⚠️ ${mancantiArr.length} giorn${mancantiArr.length===1?"o":"i"} da recuperare. Tocca qui per iniziare.</div>`;
+  } else {
+    h+=`<div class="banner banner-verde">✅ Complimenti, il diario è in ordine!</div>`;
+  }
+  return h;
+}
+function cambiaMese(n){
+  const [a,m]=meseDiario.split("-").map(Number);
+  const d=new Date(a,m-1+n,1);
+  meseDiario=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+  render();
+}
+function apriGiorno(iso){ dataInModifica=iso; vista="oggi"; render(); window.scrollTo(0,0); }
+function puntiGiorno(iso){
+  const sp=saluteProfilo();
+  const v=vociProfilo()[iso];
+  let p="";
+  if(v&&v.sintomi&&v.sintomi.length>0) p+=`<span class="punto" style="background:var(--rosso)"></span>`;
+  if(sp.visite.some(x=>x.data===iso)) p+=`<span class="punto" style="background:var(--blu)"></span>`;
+  if(sp.notizie.some(x=>x.data===iso)) p+=`<span class="punto" style="background:#9b59b6"></span>`;
+  if(sp.farmaci.some(f=>iso>=f.dal&&(!f.al||iso<=f.al))) p+=`<span class="punto" style="background:var(--giallo)"></span>`;
+  return p;
+}
+function eventiMese(anno,mese){
+  const sp=saluteProfilo();
+  const pref=anno+"-"+String(mese).padStart(2,"0");
+  const righe=[];
+  for(const x of sp.visite.filter(x=>x.data&&x.data.startsWith(pref)))
+    righe.push([x.data, `🩺 ${esc(x.testo)}${x.invasivo?' <span class="badge" style="background:var(--rosso)">invasivo</span>':""}`]);
+  for(const x of sp.notizie.filter(x=>x.data&&x.data.startsWith(pref)))
+    righe.push([x.data, `${x.tipo==="buona"?"📬✨":"📬⛈️"} ${esc(x.testo)}`]);
+  for(const f of sp.farmaci){
+    if(f.dal&&f.dal.startsWith(pref)) righe.push([f.dal, `💊 Inizio: <b>${esc(f.nome)}</b> ${f.dose?esc(f.dose):""}`]);
+    if(f.al&&f.al.startsWith(pref)) righe.push([f.al, `💊 Fine: <b>${esc(f.nome)}</b>`]);
+  }
+  if(righe.length===0) return "";
+  righe.sort((a,b)=>a[0]<b[0]?-1:1);
+  let h=`<div class="card"><h2>📌 Eventi del mese</h2>`;
+  for(const [d,t] of righe) h+=`<div class="elemento-lista" style="cursor:pointer" onclick="apriGiorno('${d}')"><b>${d.slice(8,10)}</b> — ${t}</div>`;
+  h+=`</div>`;
+  return h;
+}
+
+/* ============ VISTA ANALISI ============ */
+let graficoScelto="peso";
+const GRAFICI=[["peso","⚖️ Peso"],["umore","😊 Umore"],["stress","😣 Stress"],["sonnoQ","😴 Sonno"],["stanchezza","🥱 Stanchezza"],["sonnolenza","💤 Sonnolenza"],["temperatura","🌡️ Temperatura"],["acqua","💧 Acqua"]];
+function vistaAnalisi(){
+  const voci=vociProfilo();
+  const nDati=Object.keys(voci).filter(d=>compilato(d)).length;
+  let h=`<div class="card"><h2>📈 Andamento (ultimi 30 giorni)</h2>
+    <div class="selettore-grafico">`;
+  for(const [gk,gn] of GRAFICI){
+    h+=`<button class="chip ${graficoScelto===gk?"attivo-verde":""}" onclick="graficoScelto='${gk}';render()">${gn}</button>`;
+  }
+  h+=`</div><canvas id="grafico" width="600" height="220"></canvas></div>`;
+
+  h+=cartaStatistiche(nDati);
+  h+=cartaPrevisione(nDati);
+
+  h+=`<div class="card"><h2>🔍 Cosa ti fa bene, cosa ti fa male</h2>`;
+  if(nDati<14){
+    h+=`<p>Servono almeno <b>14 giorni</b> di dati per trovare collegamenti affidabili.<br>
+      Finora ne hai <b>${nDati}</b>. Continua a compilare ogni giorno! 💪</p>
+      <div style="background:var(--bordo);border-radius:999px;height:14px;overflow:hidden">
+        <div style="background:var(--verde);height:100%;width:${Math.min(100,Math.round(nDati/14*100))}%"></div></div>`;
+  } else {
+    const trovate=trovaCorrelazioni();
+    if(trovate.length===0){
+      h+=`<p>Per ora non emergono collegamenti forti. Più giorni compili, più l'analisi diventa precisa.</p>`;
+    } else {
+      for(const c of trovate){
+        h+=`<div class="correlazione ${c.positiva?"positiva":""}">${c.testo}
+          <div class="forza">${c.dettaglio}</div></div>`;
+      }
+    }
+  }
+  h+=`<div class="avviso">⚠️ Questi sono indizi statistici, non diagnosi mediche. Per disturbi persistenti rivolgiti a un medico.</div></div>`;
+
+  h+=cartaConsigli();
+  return h;
+}
+function cartaStatistiche(nDati){
+  if(nDati<5) return "";
+  const voci=vociProfilo();
+  const date=Object.keys(voci).filter(d=>compilato(d)).sort();
+  const nomiSintomi=Object.fromEntries(SINTOMI);
+  // sintomo più frequente (ultimi 90 giorni)
+  const da90=spostaGiorni(oggi(),-90);
+  const conta={};
+  for(const d of date){ if(d<da90) continue; for(const s of (voci[d].sintomi||[])) conta[s]=(conta[s]||0)+1; }
+  const top=Object.entries(conta).sort((a,b)=>b[1]-a[1])[0];
+  // medie ultimi 30 giorni
+  const da30=spostaGiorni(oggi(),-30);
+  const media=campo=>{
+    const vals=date.filter(d=>d>=da30).map(d=>voci[d][campo]).filter(x=>x!=null);
+    return vals.length? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : "—";
+  };
+  // stagione più critica
+  const stagioni={inverno:[11,0,1],primavera:[2,3,4],estate:[5,6,7],autunno:[8,9,10]};
+  let peggiore=null;
+  for(const [nome,mesi] of Object.entries(stagioni)){
+    const giorni=date.filter(d=>mesi.includes(Number(d.slice(5,7))-1));
+    if(giorni.length<7) continue;
+    const rate=giorni.filter(d=>(voci[d].sintomi||[]).length>0).length/giorni.length;
+    if(!peggiore||rate>peggiore.rate) peggiore={nome,rate};
+  }
+  return `<div class="card"><h2>📊 Le tue statistiche</h2><div class="stat-griglia">
+    <div class="stat-box"><div class="numero">${nDati}</div><div class="nome-stat">giorni tracciati</div></div>
+    <div class="stat-box"><div class="numero">🔥 ${calcolaStreak()}</div><div class="nome-stat">giorni di fila</div></div>
+    <div class="stat-box"><div class="numero">${media("umore")}</div><div class="nome-stat">umore medio (30 gg)</div></div>
+    <div class="stat-box"><div class="numero">${media("sonnoQ")}</div><div class="nome-stat">sonno medio (30 gg)</div></div>
+    <div class="stat-box"><div class="numero" style="font-size:1rem">${top?(nomiSintomi[top[0]]||top[0])+" ("+top[1]+"×)":"Nessuno 🎉"}</div><div class="nome-stat">disturbo più frequente (90 gg)</div></div>
+    <div class="stat-box"><div class="numero" style="font-size:1rem">${peggiore?peggiore.nome+" ("+Math.round(peggiore.rate*100)+"% gg con disturbi)":"—"}</div><div class="nome-stat">stagione più critica</div></div>
+  </div></div>`;
+}
+function cartaPrevisione(nDati){
+  if(nDati<21) return `<div class="card"><h2>🔮 Previsioni</h2><p style="margin:0">Con almeno <b>21 giorni</b> di dati l'app stimerà il tuo rischio di ammalarti nei prossimi giorni, in base a stagione, sonno, stress, freddo e stanchezza. Giorni attuali: <b>${nDati}</b>.</p></div>`;
+  const voci=vociProfilo();
+  const date=Object.keys(voci).filter(d=>compilato(d));
+  const meseCorrente=new Date().getMonth();
+  let tot=0, mal=0;
+  for(const d of date){
+    const m=Number(d.slice(5,7))-1;
+    const diff=Math.min(Math.abs(m-meseCorrente), 12-Math.abs(m-meseCorrente));
+    if(diff<=1){ tot++; if((voci[d].sintomi||[]).includes("malattia")) mal++; }
+  }
+  let base = tot>=10 ? mal/Math.max(tot,1) : date.filter(d=>(voci[d].sintomi||[]).includes("malattia")).length/date.length;
+  let rischio=Math.max(base,0.02);
+  const motivi=[];
+  const ultimi=[0,1,2].map(i=>voci[spostaGiorni(oggi(),-i)]).filter(Boolean);
+  if(ultimi.some(v=>(v.sintomi||[]).includes("freddo"))){ rischio*=2; motivi.push("hai preso freddo di recente"); }
+  if(ultimi.filter(v=>v.sonnoQ!=null&&v.sonnoQ<=2).length>=2){ rischio*=1.6; motivi.push("stai dormendo male"); }
+  if(ultimi.filter(v=>v.stress!=null&&v.stress>=4).length>=2){ rischio*=1.5; motivi.push("sei molto stressato"); }
+  if(ultimi.filter(v=>v.stanchezza!=null&&v.stanchezza>=4).length>=2){ rischio*=1.3; motivi.push("sei molto stanco"); }
+  const conSole=ultimi.filter(v=>v.sole!=null);
+  if(conSole.length>=2&&conSole.every(v=>!soleSufficiente(v))){ rischio*=1.2; motivi.push("stai prendendo poco sole"); }
+  rischio=Math.min(rischio,0.9);
+  let livello, colore, sfondo;
+  if(rischio<0.08){ livello="BASSO"; colore="var(--verde)"; sfondo="var(--verde-chiaro)"; }
+  else if(rischio<0.22){ livello="MEDIO"; colore="#8a6d00"; sfondo="#fdf3d7"; }
+  else { livello="ALTO"; colore="var(--rosso)"; sfondo="var(--rosso-chiaro)"; }
+  let h=`<div class="card"><h2>🔮 Previsioni</h2>
+    <div class="previsione" style="background:${sfondo};color:${colore}">
+      Rischio di ammalarti nei prossimi giorni: <b>${livello}</b> (~${Math.round(rischio*100)}%)
+      ${motivi.length?`<div style="font-size:.9rem;margin-top:6px">Perché: ${motivi.join(", ")}.</div>`:""}
+      ${livello!=="BASSO"?`<div style="font-size:.9rem;margin-top:6px">💡 Rallenta: dormi di più, copriti bene e riduci gli impegni per qualche giorno.</div>`:""}
+    </div>
+    <div class="avviso">Stima statistica basata sui tuoi dati passati e sulla stagione. Non è una previsione medica.</div></div>`;
+  return h;
+}
+function cartaConsigli(){
+  const voci=vociProfilo();
+  const giorni=[];
+  for(let i=0;i<14;i++){ const d=spostaGiorni(oggi(),-i); if(voci[d]&&compilato(d)) giorni.push(voci[d]); }
+  let c=[];
+  if(giorni.length<5){
+    c.push("📖 Compila il diario ogni giorno: con più dati i consigli diventano personalizzati.");
+  } else {
+    const media=campo=>{ const v=giorni.map(g=>g[campo]).filter(x=>x!=null); return v.length? v.reduce((a,b)=>a+b,0)/v.length : null; };
+    const conSole=giorni.filter(g=>g.sole!=null);
+    if(conSole.length>=5 && conSole.filter(g=>!soleSufficiente(g)).length/conSole.length>0.5)
+      c.push("☀️ Stai prendendo poco sole: punta ad almeno 15 minuti al giorno (30 se nuvoloso). La luce solare regola vitamina D, umore e ritmo sonno-veglia.");
+    const mAcqua=media("acqua");
+    if(mAcqua!=null&&mAcqua<6)
+      c.push("💧 Bevi poca acqua: punta a circa 8 bicchieri (2 litri) al giorno. Una buona idratazione aiuta reni, digestione, pelle e concentrazione.");
+    const giorniUrinaScura=giorni.filter(g=>g.urina==="u4"||g.urina==="u5"||g.urina==="u6").length;
+    if(giorniUrinaScura>=3)
+      c.push("🚻 Spesso la tua urina è scura: è un segnale di disidratazione. Prova a bere di più durante la giornata, non solo ai pasti.");
+    const mSonno=media("sonnoQ");
+    if(mSonno!=null&&mSonno<3)
+      c.push("😴 Il tuo sonno è spesso di bassa qualità. Le misure più efficaci secondo la ricerca: orari regolari (anche nel weekend), niente schermi nell'ultima ora, camera fresca e buia, niente caffeina dopo pranzo.");
+    const mSed=media("sedentarieta");
+    if(mSed!=null&&mSed>=3.5)
+      c.push("🏃 Sei spesso sedentario: l'OMS raccomanda almeno 150 minuti di movimento a settimana. Anche una camminata di 10-15 minuti dopo i pasti migliora digestione e glicemia.");
+    const mStress=media("stress");
+    const medita=giorni.filter(g=>(g.attivita||[]).includes("meditazione")||(g.attivita||[]).includes("respirazione")).length;
+    if(mStress!=null&&mStress>=3.5&&medita<3)
+      c.push("🧘 Stress alto e poca pratica di rilassamento: 10 minuti al giorno di respirazione lenta (es. 4 secondi inspiro, 6 espiro) riducono in modo misurabile cortisolo e battito cardiaco.");
+    if(giorni.filter(g=>g.pisolinoDopoPasto).length>=3)
+      c.push("💤 Spesso fai il pisolino subito dopo mangiato: sdraiarsi a stomaco pieno favorisce reflusso e cattiva digestione. Aspetta 30-60 minuti.");
+    if(giorni.filter(g=>g.denti!=null&&g.denti<2).length>giorni.length/2)
+      c.push("🪥 Lava i denti almeno 2 volte al giorno: la salute della bocca è collegata anche a cuore e infiammazione generale.");
+    const conEcc=giorni.filter(g=>Object.values(g.pasti||{}).some(p=>p&&p.ecc)).length;
+    if(conEcc>giorni.length*0.35)
+      c.push("🍝 Molte eccezioni alla dieta ultimamente: meglio pianificarle (es. una a settimana) che farle capitare. Il corpo tollera meglio gli strappi prevedibili.");
+    const orePranzo=giorni.map(g=>g.pasti&&g.pasti.pranzo&&g.pasti.pranzo.ora).filter(Boolean).map(o=>Number(o.slice(0,2))*60+Number(o.slice(3,5)));
+    if(orePranzo.length>=5&&Math.max(...orePranzo)-Math.min(...orePranzo)>120)
+      c.push("🕐 Gli orari dei tuoi pasti variano molto: la ricerca sulla crononutrizione mostra che orari regolari aiutano metabolismo, digestione e sonno.");
+    if(giorni.some(g=>g.feritaLenta))
+      c.push("🩹 Hai segnalato ferite che cicatrizzano lentamente: parlane col medico, può indicare carenze (es. vitamina K, zinco) o rischio di infezione.");
+    if(c.length===0) c.push("🌟 Le tue abitudini delle ultime 2 settimane sembrano equilibrate: continua così e tieni d'occhio l'analisi delle correlazioni.");
+  }
+  let h=`<div class="card"><h2>💡 Consigli per te</h2>`;
+  for(const t of c.slice(0,5)) h+=`<div class="consiglio">${t}</div>`;
+  h+=`<div class="avviso">Consigli generali ispirati a linee guida (OMS) e ricerca consolidata su sonno, luce solare, movimento e stress, applicati ai tuoi dati. Non sostituiscono il parere del medico.</div></div>`;
+  return h;
+}
+function serieUltimi30(campo){
+  const out=[];
+  let d=spostaGiorni(oggi(),-29);
+  for(let i=0;i<30;i++){
+    const v=vociProfilo()[d];
+    out.push({data:d, val:(v&&v[campo]!=null)?v[campo]:null});
+    d=spostaGiorni(d,1);
+  }
+  return out;
+}
+function disegnaGrafico(){
+  const cv=document.getElementById("grafico");
+  if(!cv) return;
+  const ctx=cv.getContext("2d");
+  const W=cv.width, H=cv.height, pad=34;
+  ctx.clearRect(0,0,W,H);
+  const serie=serieUltimi30(graficoScelto);
+  const valori=serie.filter(p=>p.val!=null);
+  if(valori.length<2){
+    ctx.fillStyle="#8a8a8a"; ctx.font="16px sans-serif"; ctx.textAlign="center";
+    ctx.fillText("Non ci sono ancora abbastanza dati.", W/2, H/2);
+    return;
+  }
+  let min=Math.min(...valori.map(p=>p.val)), max=Math.max(...valori.map(p=>p.val));
+  if(graficoScelto!=="peso" && graficoScelto!=="temperatura" && graficoScelto!=="acqua"){ min=1; max=5; }
+  if(graficoScelto==="acqua"){ min=0; max=Math.max(OBIETTIVO_ACQUA, max); }
+  if(min===max){ min-=1; max+=1; }
+  const x=i=>pad+(W-pad-10)*(i/29);
+  const y=v=>H-pad+ (pad+10-H)*((v-min)/(max-min));
+  // assi
+  ctx.strokeStyle="#e6e1d8"; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad,10); ctx.lineTo(pad,H-pad); ctx.lineTo(W-10,H-pad); ctx.stroke();
+  ctx.fillStyle="#8a8a8a"; ctx.font="12px sans-serif"; ctx.textAlign="right";
+  ctx.fillText(String(Math.round(max*10)/10), pad-5, 18);
+  ctx.fillText(String(Math.round(min*10)/10), pad-5, H-pad);
+  // linea
+  ctx.strokeStyle="#2e7d6b"; ctx.lineWidth=3; ctx.beginPath();
+  let iniziato=false;
+  serie.forEach((p,i)=>{
+    if(p.val==null) return;
+    if(!iniziato){ ctx.moveTo(x(i),y(p.val)); iniziato=true; }
+    else ctx.lineTo(x(i),y(p.val));
+  });
+  ctx.stroke();
+  // punti
+  ctx.fillStyle="#2e7d6b";
+  serie.forEach((p,i)=>{
+    if(p.val==null) return;
+    ctx.beginPath(); ctx.arc(x(i),y(p.val),4,0,7); ctx.fill();
+  });
+}
+
+/* ============ CORRELAZIONI ============ */
+const FATTORI=[
+  ["eccezione","un'eccezione alla dieta", v=>Object.values(v.pasti||{}).some(p=>p&&p.ecc)],
+  ["troppo","aver mangiato troppo", v=>Object.values(v.pasti||{}).some(p=>p&&p.q==="troppo")],
+  ["saltato","aver saltato un pasto", v=>["colazione","pranzo","cena"].some(k=>v.pasti&&v.pasti[k]&&v.pasti[k].q==="saltato")],
+  ["freddo","aver preso freddo", v=>(v.sintomi||[]).includes("freddo")],
+  ["cattivoSonno","una notte dormita male", v=>v.sonnoQ!=null&&v.sonnoQ<=2],
+  ["stressAlto","una giornata molto stressante", v=>v.stress!=null&&v.stress>=4],
+  ["sedentario","una giornata molto sedentaria", v=>v.sedentarieta!=null&&v.sedentarieta>=4],
+  ["igiene","pessime condizioni igieniche", v=>!!v.igienePessima],
+  ["pisolinoPasto","un pisolino subito dopo il pasto", v=>!!v.pisolinoDopoPasto],
+  ["sport","attività fisica", v=>(v.attivita||[]).includes("sport"), true],
+  ["meditazione","meditazione o respirazione", v=>(v.attivita||[]).includes("meditazione")||(v.attivita||[]).includes("respirazione"), true],
+  ["riposo","riposo o trattamenti (sauna, vacanza)", v=>(v.attivita||[]).includes("sauna")||(v.attivita||[]).includes("vacanza"), true],
+  ["abbondante","aver mangiato abbondante", v=>Object.values(v.pasti||{}).some(p=>p&&(p.q==="belPo"||p.q==="troppo"))],
+  ["pocoSole","poco sole preso", v=>v.sole!=null&&!soleSufficiente(v)],
+  ["caldo","una giornata molto calda (≥28°C)", v=>v.temperatura!=null&&v.temperatura>=28],
+  ["gelo","una giornata molto fredda (≤5°C)", v=>v.temperatura!=null&&v.temperatura<=5],
+  ["pocaAcqua","aver bevuto poca acqua", v=>v.acqua!=null&&v.acqua<=4],
+  ["urinaScura","urina scura (disidratazione)", v=>v.urina==="u4"||v.urina==="u5"||v.urina==="u6"],
+];
+function fattoriDinamici(){
+  const sp=saluteProfilo();
+  const out=[];
+  for(const f of sp.farmaci){
+    out.push(["farm_"+f.id, `il farmaco "${esc(f.nome)}"`, (v,d)=>d>=f.dal&&(!f.al||d<=f.al)]);
+  }
+  if(sp.visite.length>0){
+    out.push(["visita", "una visita o esame", (v,d)=>sp.visite.some(x=>x.data===d)]);
+    if(sp.visite.some(x=>x.invasivo))
+      out.push(["visitaInv", "un esame invasivo", (v,d)=>sp.visite.some(x=>x.data===d&&x.invasivo)]);
+  }
+  if(sp.notizie.some(x=>x.tipo==="buona"))
+    out.push(["notiziaB", "una bella notizia ricevuta", (v,d)=>sp.notizie.some(x=>x.data===d&&x.tipo==="buona")]);
+  if(sp.notizie.some(x=>x.tipo!=="buona"))
+    out.push(["notiziaC", "una brutta notizia ricevuta", (v,d)=>sp.notizie.some(x=>x.data===d&&x.tipo!=="buona")]);
+  return out;
+}
+const ESITI=[
+  ["malPancia","mal di pancia", v=>(v.sintomi||[]).includes("malPancia")],
+  ["malTesta","mal di testa", v=>(v.sintomi||[]).includes("malTesta")],
+  ["dolori","dolori", v=>(v.sintomi||[]).includes("dolori")],
+  ["fastidi","fastidi", v=>(v.sintomi||[]).includes("fastidi")],
+  ["malattia","malattia", v=>(v.sintomi||[]).includes("malattia")],
+  ["allergie","allergie forti", v=>(v.sintomi||[]).includes("allergie")],
+  ["umoreBasso","umore basso", v=>v.umore!=null&&v.umore<=2],
+  ["cattivoSonnoEsito","sonno di cattiva qualità", v=>v.sonnoQ!=null&&v.sonnoQ<=2],
+  ["stressAltoEsito","stress alto", v=>v.stress!=null&&v.stress>=4],
+  ["stanco","molta stanchezza", v=>v.stanchezza!=null&&v.stanchezza>=4],
+  ["sonnolento","molta sonnolenza", v=>v.sonnolenza!=null&&v.sonnolenza>=4],
+];
+function trovaCorrelazioni(){
+  const voci=vociProfilo();
+  const date=Object.keys(voci).filter(d=>compilato(d)).sort();
+  if(date.length<14) return [];
+  const risultati=[];
+  for(const [fk,fNome,fTest,eBenefico] of FATTORI.concat(fattoriDinamici())){
+    for(const [ek,eNome,eTest] of ESITI){
+      if(fk==="cattivoSonno"&&ek==="cattivoSonnoEsito") continue;
+      if(fk==="stressAlto"&&ek==="stressAltoEsito") continue;
+      for(const lag of [0,1]){
+        let conF=0,conFE=0,senzaF=0,senzaFE=0;
+        for(const d of date){
+          const dEsito=spostaGiorni(d,lag);
+          const vE=voci[dEsito];
+          if(!vE||!compilato(dEsito)) continue;
+          const f=!!fTest(voci[d], d), e=eTest(vE);
+          if(f){conF++; if(e)conFE++;} else {senzaF++; if(e)senzaFE++;}
+        }
+        if(conF<5||senzaF<5) continue;
+        const p1=conFE/conF, p0=senzaFE/senzaF;
+        const diff=p1-p0;
+        if(Math.abs(diff)<0.2) continue;
+        const quando=lag===1?"Il giorno dopo":"Nei giorni con";
+        const pct=x=>Math.round(x*100)+"%";
+        let testo, positiva;
+        if(diff>0){
+          positiva=false;
+          testo=`⚠️ <b>${quando} ${fNome}</b> hai avuto <b>${eNome}</b> molto più spesso: ${pct(p1)} delle volte, contro ${pct(p0)} negli altri giorni.`;
+          if(eBenefico) continue; // attività benefica che "causa" sintomi: probabile rumore, salta
+        } else {
+          positiva=true;
+          testo=`✅ <b>${quando} ${fNome}</b> hai avuto meno ${eNome}: ${pct(p1)} delle volte, contro ${pct(p0)} negli altri giorni.`;
+        }
+        risultati.push({testo, positiva, forza:Math.abs(diff),
+          dettaglio:`Basato su ${conF} giorni con e ${senzaF} senza. ${lag===1?"(effetto del giorno dopo)":""}`});
+      }
+    }
+  }
+  risultati.sort((a,b)=>b.forza-a.forza);
+  return risultati.slice(0,10);
+}
+
+/* ============ VISTA SALUTE ============ */
+function vistaSalute(){
+  const sp=saluteProfilo();
+  let h="";
+
+  // FARMACI
+  h+=`<div class="card"><h2>💊 Farmaci e integratori</h2>`;
+  const farmaciOrd=[...sp.farmaci].sort((a,b)=>(a.al?1:0)-(b.al?1:0) || (a.dal<b.dal?1:-1));
+  for(const f of farmaciOrd){
+    const inCorso=!f.al||f.al>=oggi();
+    h+=`<div class="elemento-lista"><div class="titolo"><span>💊 ${esc(f.nome)} ${f.dose?`<span style="font-weight:400">— ${esc(f.dose)}</span>`:""}</span>
+      <span>
+        ${inCorso?`<button class="btn btn-piccolo" onclick="terminaFarmaco('${f.id}')">⏹ Termina oggi</button>`:""}
+        <button class="btn btn-piccolo" onclick="eliminaElemento('farmaci','${f.id}')">🗑️</button></span></div>
+      <div class="sotto">Dal ${f.dal}${f.al?` al ${f.al}`:""} ${inCorso?'<span class="badge" style="background:var(--verde)">in corso</span>':""}</div></div>`;
+  }
+  h+=`<div class="form-riga" style="margin-top:10px">
+      <input type="text" id="fm-nome" placeholder="Nome (es. Magnesio)">
+      <input type="text" id="fm-dose" placeholder="Dose (es. 300mg, 1/giorno)"></div>
+    <div class="form-riga">
+      <input type="date" id="fm-dal" value="${oggi()}" title="Inizio">
+      <input type="date" id="fm-al" title="Fine (vuoto = in corso)"></div>
+    <button class="btn btn-verde" onclick="aggiungiFarmaco()">➕ Aggiungi farmaco</button>
+    <div class="sotto">L'analisi confronterà i giorni con e senza il farmaco per scovare miglioramenti ed effetti collaterali.</div></div>`;
+
+  // VISITE ED ESAMI
+  h+=`<div class="card"><h2>🩺 Visite ed esami</h2>`;
+  for(const x of [...sp.visite].sort((a,b)=>a.data<b.data?1:-1)){
+    h+=`<div class="elemento-lista"><div class="titolo"><span>${x.data} — ${esc(x.testo)} ${x.invasivo?'<span class="badge" style="background:var(--rosso)">invasivo</span>':""}</span>
+      <button class="btn btn-piccolo" onclick="eliminaElemento('visite','${x.id}')">🗑️</button></div></div>`;
+  }
+  h+=`<div class="form-riga" style="margin-top:10px">
+      <input type="date" id="vs-data" value="${dataInModifica<=oggi()?dataInModifica:oggi()}">
+      <input type="text" id="vs-testo" placeholder="Es. Gastroscopia, visita dentista..."></div>
+    <div class="toggle-riga"><span>Esame invasivo?</span>
+      <label class="interruttore"><input type="checkbox" id="vs-invasivo"><span class="slider"></span></label></div>
+    <button class="btn btn-verde" onclick="aggiungiVisita()">➕ Aggiungi visita/esame</button>
+    <div class="sotto">L'analisi controllerà se nei giorni dopo gli esami (soprattutto invasivi) compaiono disturbi.</div></div>`;
+
+  // NOTIZIE
+  h+=`<div class="card"><h2>📬 Notizie importanti ricevute</h2>`;
+  for(const x of [...sp.notizie].sort((a,b)=>a.data<b.data?1:-1)){
+    h+=`<div class="elemento-lista"><div class="titolo"><span>${x.tipo==="buona"?"✨":"⛈️"} ${x.data} — ${esc(x.testo)}</span>
+      <button class="btn btn-piccolo" onclick="eliminaElemento('notizie','${x.id}')">🗑️</button></div></div>`;
+  }
+  h+=`<div class="form-riga" style="margin-top:10px">
+      <input type="date" id="nt-data" value="${dataInModifica<=oggi()?dataInModifica:oggi()}">
+      <select id="nt-tipo"><option value="buona">✨ Bella notizia</option><option value="cattiva">⛈️ Brutta notizia</option></select></div>
+    <div class="form-riga"><input type="text" id="nt-testo" placeholder="Es. Esito positivo delle analisi..."></div>
+    <button class="btn btn-verde" onclick="aggiungiNotizia()">➕ Aggiungi notizia</button>
+    <div class="sotto">Serve a valutare l'effetto placebo/nocebo: quanto le notizie (belle o brutte) influenzano come ti senti nei giorni successivi.</div></div>`;
+
+  // IPOTESI
+  h+=`<div class="card"><h2>🔬 Le tue ipotesi</h2>
+    <div class="sotto" style="margin-top:0;margin-bottom:10px">Es. "Il latte mi gonfia", "Dormo male quando ceno tardi". Raccogli indizi a favore o contro, poi conferma o smentisci.</div>`;
+  for(const i of [...sp.ipotesi].sort((a,b)=>(a.stato==="aperta"?0:1)-(b.stato==="aperta"?0:1))){
+    const colori={aperta:"var(--giallo)",confermata:"var(--verde)",smentita:"var(--rosso)"};
+    const tot=i.pro+i.contro;
+    const perc=tot>0?Math.round(i.pro/tot*100):50;
+    h+=`<div class="elemento-lista">
+      <div class="titolo"><span>${esc(i.testo)}</span>
+        <span><span class="badge" style="background:${colori[i.stato]}">${i.stato}</span>
+        <button class="btn btn-piccolo" onclick="eliminaElemento('ipotesi','${i.id}')">🗑️</button></span></div>
+      <div style="background:var(--bordo);border-radius:999px;height:10px;overflow:hidden;margin:8px 0 4px 0">
+        <div style="background:var(--verde);height:100%;width:${perc}%"></div></div>
+      <div class="sotto">Indizi: ${i.pro} a favore, ${i.contro} contro ${tot>0?`→ sembra vera al ${perc}%`:""}</div>
+      ${i.stato==="aperta"?`<div class="chips" style="margin-top:8px">
+        <button class="chip" onclick="votaIpotesi('${i.id}',1)">👍 Indizio a favore</button>
+        <button class="chip" onclick="votaIpotesi('${i.id}',-1)">👎 Indizio contro</button>
+        <button class="chip attivo-verde" onclick="statoIpotesi('${i.id}','confermata')">✅ Confermata</button>
+        <button class="chip attivo" onclick="statoIpotesi('${i.id}','smentita')">❌ Smentita</button>
+      </div>`:`<div class="chips" style="margin-top:8px"><button class="chip" onclick="statoIpotesi('${i.id}','aperta')">↩️ Riapri</button></div>`}
+    </div>`;
+  }
+  h+=`<div class="form-riga" style="margin-top:10px"><input type="text" id="ip-testo" placeholder="Scrivi la tua ipotesi..."></div>
+    <button class="btn btn-verde" onclick="aggiungiIpotesi()">➕ Aggiungi ipotesi</button>
+    <div class="sotto">💡 Controlla anche la sezione Analisi: le correlazioni trovate sono ottimi indizi per le tue ipotesi.</div></div>`;
+  return h;
+}
+function valore(id){ const e=document.getElementById(id); return e?e.value.trim():""; }
+function aggiungiFarmaco(){
+  const nome=valore("fm-nome"); if(!nome){ alert("Scrivi il nome del farmaco."); return; }
+  saluteProfilo().farmaci.push({id:"f"+Date.now(), nome, dose:valore("fm-dose"),
+    dal:valore("fm-dal")||oggi(), al:valore("fm-al")||null, agg:Date.now()});
+  salva(); render();
+}
+function terminaFarmaco(id){
+  const f=saluteProfilo().farmaci.find(x=>x.id===id); if(!f) return;
+  f.al=oggi(); f.agg=Date.now(); salva(); render();
+}
+function aggiungiVisita(){
+  const testo=valore("vs-testo"); if(!testo){ alert("Descrivi la visita o l'esame."); return; }
+  saluteProfilo().visite.push({id:"v"+Date.now(), data:valore("vs-data")||oggi(), testo,
+    invasivo:document.getElementById("vs-invasivo").checked, agg:Date.now()});
+  salva(); render();
+}
+function aggiungiNotizia(){
+  const testo=valore("nt-testo"); if(!testo){ alert("Descrivi la notizia."); return; }
+  saluteProfilo().notizie.push({id:"n"+Date.now(), data:valore("nt-data")||oggi(), testo,
+    tipo:document.getElementById("nt-tipo").value, agg:Date.now()});
+  salva(); render();
+}
+function aggiungiIpotesi(){
+  const testo=valore("ip-testo"); if(!testo){ alert("Scrivi l'ipotesi."); return; }
+  saluteProfilo().ipotesi.push({id:"i"+Date.now(), testo, creata:oggi(), stato:"aperta", pro:0, contro:0, agg:Date.now()});
+  salva(); render();
+}
+function votaIpotesi(id, delta){
+  const i=saluteProfilo().ipotesi.find(x=>x.id===id); if(!i) return;
+  if(delta>0) i.pro++; else i.contro++;
+  i.agg=Date.now(); salva(); render();
+}
+function statoIpotesi(id, stato){
+  const i=saluteProfilo().ipotesi.find(x=>x.id===id); if(!i) return;
+  i.stato=stato; i.agg=Date.now(); salva(); render();
+}
+function eliminaElemento(lista, id){
+  if(!confirm("Eliminare questo elemento?")) return;
+  const sp=saluteProfilo();
+  sp[lista]=sp[lista].filter(x=>x.id!==id);
+  salva(); render();
+}
+
+/* ============ VISTA IMPOSTAZIONI ============ */
+function vistaImpostazioni(){
+  let h=`<div class="card"><h2>👤 Profili</h2>`;
+  for(const p of S.profili){
+    h+=`<div class="riga-profilo"><span style="font-weight:${p.id===S.profiloCorrente?"700":"400"}">${p.id===S.profiloCorrente?"✓ ":""}${p.nome}</span>
+      <span>
+        <button class="btn btn-piccolo" onclick="rinominaProfilo('${p.id}')">✏️</button>
+        ${S.profili.length>1?`<button class="btn btn-piccolo" onclick="eliminaProfilo('${p.id}')">🗑️</button>`:""}
+      </span></div>`;
+  }
+  h+=`<div style="margin-top:12px"><button class="btn btn-verde" onclick="aggiungiProfilo()">➕ Aggiungi persona</button></div>
+    <div class="sotto">Ogni persona ha il suo diario separato. Cambia persona dal menu in alto.</div></div>`;
+
+  const tema=(S.impostazioni&&S.impostazioni.tema)||"auto";
+  h+=`<div class="card"><h2>🎨 Aspetto</h2>
+    <div class="nome-scala" style="font-weight:700;margin-bottom:8px">Modalità scura</div>
+    <div class="tre-bottoni">
+      <button class="chip ${tema==="auto"?"attivo-verde":""}" onclick="impostaTema('auto')">🌗 Automatica</button>
+      <button class="chip ${tema==="chiaro"?"attivo-verde":""}" onclick="impostaTema('chiaro')">☀️ Chiara</button>
+      <button class="chip ${tema==="scuro"?"attivo-verde":""}" onclick="impostaTema('scuro')">🌙 Scura</button>
+    </div>
+    <div class="sotto">"Automatica" segue le impostazioni del tuo telefono o computer.</div></div>`;
+
+  h+=`<div class="card"><h2>🔔 Promemoria</h2>
+    <div class="toggle-riga"><span>Ricordamelo ogni giorno alle</span>
+      <input type="time" value="${S.impostazioni.oraPromemoria||"20:00"}" onchange="S.impostazioni.oraPromemoria=this.value;salva()"></div>
+    <button class="btn" onclick="attivaNotifiche()">Attiva le notifiche</button>
+    <div class="sotto">Le notifiche funzionano quando l'app è aperta nel browser. All'apertura, l'app ti mostra sempre i giorni da recuperare.</div></div>`;
+
+  h+=cartaCloud();
+
+  h+=`<div class="card"><h2>💾 I tuoi dati</h2>
+    <p style="margin-top:0">I dati restano <b>solo su questo dispositivo</b>. Fai un backup ogni tanto!</p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap">
+      <button class="btn btn-verde" onclick="esporta()">⬇️ Salva backup</button>
+      <button class="btn" onclick="document.getElementById('file-import').click()">⬆️ Carica backup</button>
+      <input type="file" id="file-import" accept=".json" style="display:none" onchange="importa(this)">
+    </div></div>`;
+
+  h+=`<div class="card"><h2>ℹ️ Informazioni</h2>
+    <p style="margin-top:0">🌱 <b>Find Your Good</b> ti aiuta a scoprire cosa fa bene e cosa fa male al tuo corpo, incrociando abitudini e disturbi giorno per giorno.</p>
+    <p>Compila ogni giorno (bastano 1-2 minuti): dopo 2 settimane iniziano le analisi, e più continui più diventano precise.</p>
+    <p class="avviso">Questa app non fornisce diagnosi mediche.</p>
+    <button class="btn" style="border-color:var(--rosso); color:var(--rosso)" onclick="cancellaTutto()">🗑️ Cancella tutti i dati</button></div>`;
+  return h;
+}
+function aggiungiProfilo(){
+  const nome=prompt("Nome della persona:");
+  if(!nome) return;
+  const id="p"+Date.now();
+  S.profili.push({id, nome:nome.trim()});
+  S.profiloCorrente=id;
+  salva(); render();
+}
+function rinominaProfilo(id){
+  const p=S.profili.find(p=>p.id===id);
+  const nome=prompt("Nuovo nome:", p.nome);
+  if(!nome) return;
+  p.nome=nome.trim(); salva(); render();
+}
+function eliminaProfilo(id){
+  const p=S.profili.find(p=>p.id===id);
+  if(!confirm(`Eliminare "${p.nome}" e tutti i suoi dati? Non si può annullare.`)) return;
+  S.profili=S.profili.filter(x=>x.id!==id);
+  delete S.voci[id];
+  if(S.profiloCorrente===id) S.profiloCorrente=S.profili[0].id;
+  salva(); render();
+}
+function esporta(){
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="find-your-good-backup-"+oggi()+".json";
+  a.click();
+  mostraToast("Backup scaricato ✓");
+}
+function importa(input){
+  const f=input.files[0];
+  if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const dati=JSON.parse(r.result);
+      if(!dati.profili||!dati.voci) throw new Error();
+      if(!confirm("Sostituire i dati attuali con quelli del backup?")) return;
+      S=dati; salva(); render();
+      mostraToast("Backup caricato ✓");
+    }catch(e){ alert("File non valido. Usa un backup creato da questa app."); }
+  };
+  r.readAsText(f);
+}
+function cancellaTutto(){
+  if(!confirm("Cancellare DAVVERO tutti i dati di tutte le persone?")) return;
+  if(!confirm("Ultima conferma: i dati andranno persi per sempre (a meno che tu non abbia un backup).")) return;
+  localStorage.removeItem(CHIAVE);
+  S=carica(); render();
+}
+
+/* ============ NOTIFICHE ============ */
+function attivaNotifiche(){
+  if(!("Notification" in window)){ alert("Questo browser non supporta le notifiche."); return; }
+  Notification.requestPermission().then(p=>{
+    mostraToast(p==="granted"?"Notifiche attive ✓":"Notifiche non consentite");
+  });
+}
+let notificaInviata=false;
+setInterval(()=>{
+  if(!("Notification" in window)||Notification.permission!=="granted") return;
+  const ora=new Date().toTimeString().slice(0,5);
+  if(ora>=(S.impostazioni.oraPromemoria||"20:00") && !compilato(oggi()) && !notificaInviata){
+    notificaInviata=true;
+    new Notification("🌱 Find Your Good", {body:"Com'è andata oggi? Compila il tuo diario, bastano 2 minuti!"});
+  }
+}, 60000);
+
+/* ============ SUPABASE (cloud + login) ============ */
+const SUPA_CHIAVE="fyg_supa";
+let supaCfg=null;
+try{ supaCfg=JSON.parse(localStorage.getItem(SUPA_CHIAVE)||"null"); }catch(e){}
+let supa=null, utente=null, statoSync="", mostraConfigCloud=false;
+
+function cartaCloud(){
+  let h=`<div class="card"><h2>☁️ Cloud e accesso</h2>`;
+  if(!supaCfg || mostraConfigCloud){
+    h+=`<p style="margin-top:0">Collega un progetto <b>Supabase</b> (gratuito) per salvare i dati nel cloud e usarli da più dispositivi con un login.</p>
+      <div class="form-riga"><input type="text" id="su-url" placeholder="URL del progetto (https://xxxx.supabase.co)" value="${supaCfg?esc(supaCfg.url):""}"></div>
+      <div class="form-riga"><input type="text" id="su-key" placeholder="Chiave 'anon public'" value="${supaCfg?esc(supaCfg.key):""}"></div>
+      <button class="btn btn-verde" onclick="salvaConfigSupa()">💾 Salva configurazione</button>
+      <button class="dettagli-btn" style="margin-top:10px" onclick="togglaSezione('guida-supa')">📖 Come si configura (guida passo passo) ▾</button>
+      <div id="guida-supa" class="nascosto">
+        <ol style="padding-left:20px; font-size:.95rem">
+          <li>Vai su <b>supabase.com</b>, crea un account gratuito e un nuovo progetto.</li>
+          <li>Nel progetto apri <b>SQL Editor</b>, incolla ed esegui questo codice:</li>
+        </ol>
+        <pre class="sql">create table diario (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  contenuto jsonb not null,
+  aggiornato timestamptz default now()
+);
+alter table diario enable row level security;
+create policy "solo i propri dati" on diario
+  for all using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);</pre>
+        <ol start="3" style="padding-left:20px; font-size:.95rem">
+          <li>Vai in <b>Project Settings → API</b>: copia <b>Project URL</b> e la chiave <b>anon public</b> nei campi qui sopra.</li>
+          <li>Salva, poi registrati con la tua email qui sotto.</li>
+        </ol>
+        <div class="sotto">Trovi la stessa guida nel file SUPABASE.md accanto all'app.</div>
+      </div>`;
+  } else if(!utente){
+    h+=`<p style="margin-top:0">Accedi per sincronizzare i tuoi dati nel cloud.</p>
+      <div class="form-riga"><input type="email" id="au-email" placeholder="La tua email" autocomplete="email"></div>
+      <div class="form-riga"><input type="password" id="au-pw" placeholder="Password (min 6 caratteri)" autocomplete="current-password"></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap">
+        <button class="btn btn-verde" onclick="accedi()">🔑 Accedi</button>
+        <button class="btn" onclick="registrati()">✍️ Registrati</button>
+        <button class="btn btn-piccolo" onclick="recuperaPassword()">Password dimenticata</button>
+      </div>
+      <div class="stato-sync">${statoSync}</div>
+      <button class="dettagli-btn" onclick="mostraConfigCloud=true;render()">⚙️ Modifica configurazione Supabase</button>`;
+  } else {
+    h+=`<p style="margin-top:0">✅ Connesso come <b>${esc(utente.email)}</b></p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap">
+        <button class="btn btn-verde" onclick="sincronizza()">🔄 Sincronizza ora</button>
+        <button class="btn" onclick="esci()">🚪 Esci</button>
+      </div>
+      <div class="stato-sync">${statoSync||"I dati si sincronizzano da soli dopo ogni modifica."}</div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+function salvaConfigSupa(){
+  const url=valore("su-url"), key=valore("su-key");
+  if(!url.startsWith("https://")||!key){ alert("Inserisci l'URL del progetto (https://...) e la chiave anon public."); return; }
+  supaCfg={url,key};
+  localStorage.setItem(SUPA_CHIAVE, JSON.stringify(supaCfg));
+  mostraConfigCloud=false;
+  initSupabase();
+  mostraToast("Configurazione salvata ✓");
+  render();
+}
+function initSupabase(){
+  if(!supaCfg||!supaCfg.url||!supaCfg.key) return;
+  if(window.supabase&&window.supabase.createClient){ creaClientSupa(); return; }
+  const s=document.createElement("script");
+  s.src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
+  s.onload=creaClientSupa;
+  s.onerror=()=>{ statoSync="⚠️ Sei offline: il cloud riprenderà appena torni connesso."; if(vista==="impostazioni")render(); };
+  document.head.appendChild(s);
+}
+function creaClientSupa(){
+  try{
+    supa=window.supabase.createClient(supaCfg.url, supaCfg.key);
+    supa.auth.getSession().then(({data})=>{
+      utente=data.session?data.session.user:null;
+      if(utente) sincronizza();
+      if(vista==="impostazioni") render();
+    });
+    supa.auth.onAuthStateChange((_e,sess)=>{ utente=sess?sess.user:null; });
+  }catch(e){ statoSync="⚠️ Configurazione non valida: controlla URL e chiave."; }
+}
+async function registrati(){
+  if(!supa){ alert("Prima configura Supabase."); return; }
+  const email=valore("au-email"), password=valore("au-pw");
+  if(!email||password.length<6){ alert("Inserisci email e una password di almeno 6 caratteri."); return; }
+  const {error}=await supa.auth.signUp({email,password});
+  if(error){ alert("Errore: "+error.message); return; }
+  alert("Registrazione inviata! Controlla la tua email e conferma il link, poi torna qui e premi Accedi.");
+}
+async function accedi(){
+  if(!supa){ alert("Prima configura Supabase."); return; }
+  const email=valore("au-email"), password=valore("au-pw");
+  const {data,error}=await supa.auth.signInWithPassword({email,password});
+  if(error){ alert("Accesso non riuscito: "+error.message); return; }
+  utente=data.user;
+  mostraToast("Benvenuto! ✓");
+  await sincronizza();
+  render();
+}
+async function esci(){
+  if(supa) await supa.auth.signOut();
+  utente=null; statoSync=""; render();
+}
+async function recuperaPassword(){
+  if(!supa){ alert("Prima configura Supabase."); return; }
+  const email=valore("au-email");
+  if(!email){ alert("Scrivi la tua email nel campo, poi ripremi."); return; }
+  const {error}=await supa.auth.resetPasswordForEmail(email);
+  alert(error? "Errore: "+error.message : "Ti abbiamo inviato un'email per reimpostare la password.");
+}
+let pushTimer=null;
+function pianificaPush(){
+  if(!supa||!utente) return;
+  clearTimeout(pushTimer);
+  pushTimer=setTimeout(pushRemoto, 2500);
+}
+async function pushRemoto(){
+  if(!supa||!utente) return;
+  try{
+    statoSync="⏫ Salvataggio nel cloud...";
+    const {error}=await supa.from("diario").upsert({user_id:utente.id, contenuto:S, aggiornato:new Date().toISOString()});
+    if(error) throw error;
+    statoSync="☁️ Sincronizzato alle "+new Date().toTimeString().slice(0,5);
+  }catch(e){ statoSync="⚠️ Errore di sincronizzazione: "+(e.message||""); }
+  if(vista==="impostazioni") render();
+}
+async function sincronizza(){
+  if(!supa||!utente) return;
+  try{
+    statoSync="⏬ Recupero dati dal cloud...";
+    const {data,error}=await supa.from("diario").select("contenuto").eq("user_id",utente.id).maybeSingle();
+    if(error) throw error;
+    if(data&&data.contenuto){
+      S=unisci(data.contenuto, S);
+      localStorage.setItem(CHIAVE, JSON.stringify(S));
+      render();
+    }
+    await pushRemoto();
+  }catch(e){ statoSync="⚠️ Errore di sincronizzazione: "+(e.message||""); if(vista==="impostazioni")render(); }
+}
+function unisci(remoto, locale){
+  const out=JSON.parse(JSON.stringify(remoto));
+  out.profili=out.profili||[];
+  for(const p of (locale.profili||[])) if(!out.profili.some(x=>x.id===p.id)) out.profili.push(p);
+  if(out.profili.length===0) out.profili=locale.profili;
+  out.profiloCorrente = out.profili.some(p=>p.id===locale.profiloCorrente) ? locale.profiloCorrente : out.profili[0].id;
+  out.voci=out.voci||{};
+  for(const pid in (locale.voci||{})){
+    out.voci[pid]=out.voci[pid]||{};
+    for(const d in locale.voci[pid]){
+      const l=locale.voci[pid][d], r=out.voci[pid][d];
+      if(!r || (l.agg||0)>=(r.agg||0)) out.voci[pid][d]=l;
+    }
+  }
+  out.salute=out.salute||{};
+  for(const pid in (locale.salute||{})){
+    out.salute[pid]=out.salute[pid]||{};
+    for(const k of ["farmaci","visite","notizie","ipotesi"]){
+      const mappa={};
+      for(const x of (out.salute[pid][k]||[])) mappa[x.id]=x;
+      for(const x of (locale.salute[pid][k]||[])){
+        if(!mappa[x.id] || (x.agg||0)>=(mappa[x.id].agg||0)) mappa[x.id]=x;
+      }
+      out.salute[pid][k]=Object.values(mappa);
+    }
+  }
+  out.impostazioni=locale.impostazioni||out.impostazioni||{oraPromemoria:"20:00"};
+  return out;
+}
+
+/* ============ AVVIO ============ */
+applicaTema();
+if(window.matchMedia){
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", ()=>{
+    if((S.impostazioni&&S.impostazioni.tema||"auto")==="auto") applicaTema();
+  });
+}
+initSupabase();
+render();
+</script>
+</body>
+</html>
