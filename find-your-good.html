@@ -258,6 +258,7 @@ let dataInModifica = oggi();
 let meseDiario = oggi().slice(0,7); // "AAAA-MM"
 let sezioniAperte = new Set();   // sezioni espandibili aperte (persistono tra i render)
 let saluteRitorno = null;        // giorno da cui si è aperta la scheda Salute
+let scrollPos = {};              // posizione di scroll memorizzata per ogni sezione
 let authPronto = false;          // controllo sessione completato
 let promptInstall = null;        // evento per installare la PWA
 let clickTimer = null;           // per distinguere click singolo/doppio sul calendario
@@ -502,11 +503,13 @@ const MODULI_TRACCIA=[
 
 /* ============ NAVIGAZIONE ============ */
 function vai(v){
+  if(vista!==v) scrollPos[vista]=window.scrollY;   // memorizza dove eri nella sezione attuale
   vista=v;
   if(v!=="salute") saluteRitorno=null;
   if(v==="oggi") dataInModifica=oggi();
   render();
-  window.scrollTo(0,0);
+  const y = scrollPos[v] || 0;                      // ripristina lo scroll della sezione scelta
+  requestAnimationFrame(()=>window.scrollTo(0,y));
 }
 function mostraChrome(mostra){
   const nav=document.querySelector(".nav");
