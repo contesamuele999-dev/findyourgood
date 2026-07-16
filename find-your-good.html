@@ -2676,10 +2676,10 @@ function unisci(remoto, locale){
   // Mantieni il profilo corrente locale solo se esiste ancora nell'unione
   // (cioè non è un doppione vuoto scartato); altrimenti usa quello del cloud.
   const localeVuoto=!(locale.profili||[]).some(p=>haDati(p.id));
-  out.profiloCorrente =
+  const preferito =
     (!localeVuoto && out.profili.some(p=>p.id===locale.profiloCorrente)) ? locale.profiloCorrente
     : (remoto.profiloCorrente && out.profili.some(p=>p.id===remoto.profiloCorrente)) ? remoto.profiloCorrente
-    : out.profili[0].id;
+    : null;
   out.voci=out.voci||{};
   for(const pid in (locale.voci||{})){
     out.voci[pid]=out.voci[pid]||{};
@@ -2704,6 +2704,18 @@ function unisci(remoto, locale){
   out.impostazioni = localeVuoto
     ? (out.impostazioni||locale.impostazioni||{oraPromemoria:"20:00"})
     : (locale.impostazioni||out.impostazioni||{oraPromemoria:"20:00"});
+  // Scegli come profilo iniziale uno che abbia davvero dei dati, cosi dopo il
+  // login su un nuovo dispositivo (es. tablet) non si apre su una persona vuota.
+  const haDatiOut=(pid)=>{
+    const vv=out.voci&&out.voci[pid];
+    if(vv && Object.keys(vv).length) return true;
+    const ss=out.salute&&out.salute[pid];
+    if(ss && ["farmaci","trattamenti","visite","notizie","ipotesi","cambiamenti","sangue"].some(k=>ss[k]&&ss[k].length)) return true;
+    return false;
+  };
+  out.profiloCorrente =
+    (preferito && haDatiOut(preferito)) ? preferito
+    : ((out.profili.find(p=>haDatiOut(p.id))||{}).id || preferito || out.profili[0].id);
   return out;
 }
 
