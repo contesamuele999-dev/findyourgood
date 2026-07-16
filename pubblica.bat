@@ -35,12 +35,23 @@ git remote add origin "%REPOURL%"
 
 :committa
 echo.
-set /p MSG="Descrivi la modifica (INVIO = 'aggiornamento'): "
+set /p MSG="Descrivi la modifica (INVIO = aggiornamento): "
 if "%MSG%"=="" set MSG=aggiornamento
+
+REM Rimuove un eventuale lock rimasto da un Git interrotto in precedenza.
+if exist ".git\index.lock" del /f /q ".git\index.lock"
 
 git add -A
 git commit -m "%MSG%"
+if errorlevel 1 echo - Nessuna modifica nuova da salvare: procedo comunque con l'invio.
 git push -u origin main
+if errorlevel 1 (
+  echo.
+  echo [ATTENZIONE] Invio non riuscito.
+  echo Controlla la connessione o le credenziali GitHub, poi riprova.
+  pause
+  exit /b 1
+)
 
 echo.
 echo ============================================

@@ -2089,8 +2089,79 @@ function eliminaElemento(lista, id){
 }
 
 /* ============ VISTA IMPOSTAZIONI ============ */
+function cartaAiuto(){
+  return `<div class="card"><h2>❓ Aiuto e consigli</h2>
+  <div class="sotto" style="margin-top:0;margin-bottom:10px">Una guida rapida all'app e alcune informazioni pratiche utili ogni giorno. Tocca una voce per aprirla.</div>
+
+  <button class="dettagli-btn" onclick="togglaSezione('aiuto-app')">📱 Come si usa l'app ▾</button>
+  <div id="aiuto-app" class="nascosto" style="font-size:.96rem; line-height:1.5">
+    <p style="margin-top:8px"><b>A cosa serve.</b> Ogni giorno segni come stai e cosa fai (umore, sonno, disturbi, farmaci…). Dopo circa 2 settimane l'app inizia a incrociare i dati e ti mostra <b>cosa ti fa bene e cosa ti fa male</b>. Più compili, più le analisi diventano precise.</p>
+    <p><b>📝 Oggi</b> — La schermata principale: registri la giornata in 1-2 minuti. Compila anche solo umore e una nota se hai fretta.</p>
+    <p><b>📅 Diario</b> — Il calendario di tutti i giorni: tocca una data per rivederla o correggerla; i giorni non compilati restano segnalati.</p>
+    <p><b>📊 Analisi</b> — I grafici e le relazioni che l'app trova tra abitudini e disturbi. Appaiono dopo qualche settimana di dati.</p>
+    <p><b>💊 Sanità</b> — L'archivio di farmaci, trattamenti, visite ed esami del sangue, con i loro andamenti.</p>
+    <p><b>⚙️ Altro</b> — Dove sei ora: aspetto, promemoria, cosa tracciare, backup, resoconto per il medico e login al cloud.</p>
+    <p><b>👥 Profili</b> — Puoi tenere più persone (es. te e un familiare): cambi profilo dall'alto della schermata. Ogni profilo ha i suoi dati.</p>
+    <p><b>📄 Resoconto per il medico</b> — In "Altro" generi un riepilogo stampabile (o in PDF) da portare in visita.</p>
+  </div>
+
+  <button class="dettagli-btn" style="margin-top:8px" onclick="togglaSezione('aiuto-cloud')">☁️ Usare l'app su più dispositivi ▾</button>
+  <div id="aiuto-cloud" class="nascosto" style="font-size:.96rem; line-height:1.5">
+    <p style="margin-top:8px">Per ritrovare gli stessi dati su telefono <b>e</b> tablet devi <b>accedere con la stessa email e password</b> su entrambi (sezione <b>🔑 Login</b> qui sotto).</p>
+    <p><b>Importante:</b> i dati si spostano solo dopo che il dispositivo che li contiene li ha <b>caricati nel cloud</b>. Quindi:</p>
+    <ol style="padding-left:20px">
+      <li>Sul dispositivo che ha già i dati (es. il telefono): apri l'app, fai login e attendi lo stato <b>"☁️ Sincronizzato"</b> (o premi <b>Sincronizza ora</b>).</li>
+      <li>Sull'altro dispositivo (es. il tablet): fai login con la <b>stessa</b> email e premi <b>Sincronizza ora</b>: i dati arrivano.</li>
+    </ol>
+    <p>Se sul tablet vedi tutto vuoto, quasi sempre significa che i dati del telefono <b>non erano ancora stati caricati</b>: torna sul telefono, sincronizza, poi riprova sul tablet. Tieni attivo <b>"Ricordami"</b> per non rifare il login ogni volta.</p>
+  </div>
+
+  <button class="dettagli-btn" style="margin-top:8px" onclick="togglaSezione('aiuto-farmaci')">💊 Prendere i farmaci: a digiuno o ai pasti? ▾</button>
+  <div id="aiuto-farmaci" class="nascosto" style="font-size:.96rem; line-height:1.5">
+    <p style="margin-top:8px"><b>Dipende dal farmaco</b>: segui sempre il foglietto illustrativo o ciò che dice medico/farmacista. In generale:</p>
+    <p><b>A stomaco vuoto</b> (circa 1 ora prima o 2 ore dopo il pasto): alcuni farmaci si assorbono meglio senza cibo, ad esempio diversi antibiotici, alcuni ormoni tiroidei e i bifosfonati per le ossa. Il cibo può ridurne l'efficacia.</p>
+    <p><b>Durante o subito dopo i pasti</b>: farmaci che possono irritare lo stomaco (molti antinfiammatori/FANS, cortisonici) o che si assorbono meglio con il cibo. Il pasto fa da "cuscinetto" e riduce nausea e bruciore.</p>
+    <p><b>Regole d'oro:</b> rispetta gli <b>orari</b> il più possibile costanti; non <b>interrompere</b> un antibiotico prima del previsto anche se stai meglio; non <b>raddoppiare</b> se salti una dose (chiedi come comportarti); alcuni farmaci non vanno presi con <b>latte/latticini</b> (calcio) o con il <b>succo di pompelmo</b>, che può alterarne l'effetto.</p>
+    <p><b>Con acqua:</b> ingoia le compresse con un <b>bicchiere pieno d'acqua</b> (non a secco), stando seduto o in piedi, per evitare che restino in gola o nell'esofago.</p>
+  </div>
+
+  <button class="dettagli-btn" style="margin-top:8px" onclick="togglaSezione('aiuto-dosi')">🥄 Cucchiai, gocce e dosi ▾</button>
+  <div id="aiuto-dosi" class="nascosto" style="font-size:.96rem; line-height:1.5">
+    <p style="margin-top:8px">Misure indicative per gli sciroppi e i liquidi:</p>
+    <ul style="padding-left:20px">
+      <li><b>1 cucchiaino</b> da caffè/tè ≈ <b>5 ml</b></li>
+      <li><b>1 cucchiaio</b> da tavola ≈ <b>15 ml</b> (cioè 3 cucchiaini)</li>
+      <li><b>1 cucchiaio da dessert</b> ≈ <b>10 ml</b></li>
+      <li><b>1 tazzina</b> da caffè ≈ 30-40 ml · <b>1 bicchiere</b> d'acqua ≈ 200-250 ml</li>
+      <li>Circa <b>20 gocce</b> ≈ 1 ml (varia molto secondo il liquido e il contagocce)</li>
+    </ul>
+    <p><b>Consiglio:</b> per i farmaci usa sempre il <b>misurino, la siringa dosatrice o il bicchierino graduato</b> forniti nella confezione. I cucchiai di casa hanno capacità molto diverse e sono imprecisi: usali solo come riferimento di massima, mai per dosare un medicinale.</p>
+  </div>
+
+  <button class="dettagli-btn" style="margin-top:8px" onclick="togglaSezione('aiuto-acqua')">💧 Bere acqua: quanto e perché ▾</button>
+  <div id="aiuto-acqua" class="nascosto" style="font-size:.96rem; line-height:1.5">
+    <p style="margin-top:8px">In condizioni normali si indicano circa <b>1,5-2 litri al giorno</b> (6-8 bicchieri), di più con caldo, febbre, sport, diarrea o vomito. Gran parte del corpo è fatta d'acqua: bere a sufficienza aiuta molte funzioni.</p>
+    <p><b>Effetti del bere bene:</b> più energia e concentrazione, meno mal di testa, digestione e transito regolari, pelle e reni che lavorano meglio, aiuto nell'eliminare le scorie. Molti farmaci hanno bisogno di buona idratazione per essere smaltiti senza affaticare i reni.</p>
+    <p><b>Segnali che stai bevendo poco:</b> urina scura e concentrata, bocca secca, sete intensa, stanchezza, mal di testa, pelle "che resta sollevata" se pizzicata. L'urina chiara è un buon segno.</p>
+    <p><b>Consigli pratici:</b> tieni una bottiglia in vista, bevi a piccoli sorsi durante tutta la giornata senza aspettare la sete, un bicchiere al risveglio e uno prima dei pasti. Attenzione a caffè e alcol in eccesso, che fanno urinare di più.</p>
+    <p class="sotto">Nota: in alcune condizioni (per es. problemi di cuore o reni) il medico può indicare un limite ai liquidi. In quel caso segui la sua indicazione.</p>
+  </div>
+
+  <button class="dettagli-btn" style="margin-top:8px" onclick="togglaSezione('aiuto-abitudini')">🌙 Sonno, movimento e piccole abitudini ▾</button>
+  <div id="aiuto-abitudini" class="nascosto" style="font-size:.96rem; line-height:1.5">
+    <p style="margin-top:8px"><b>Sonno:</b> per un adulto di solito servono 7-9 ore. Aiutano orari regolari, poca luce e schermi prima di dormire, e limitare caffè dal pomeriggio.</p>
+    <p><b>Movimento:</b> anche una camminata di 20-30 minuti al giorno migliora umore, sonno e salute generale.</p>
+    <p><b>Pasti:</b> orari regolari e porzioni non enormi aiutano digestione ed energia; annota nell'app cosa ti fa sentire pesante o gonfio, così l'app può notarlo.</p>
+    <p><b>Conservazione dei farmaci:</b> tienili all'asciutto, lontano da luce e calore (non in bagno o in auto), fuori dalla portata dei bambini; controlla la <b>scadenza</b> e come conservare quelli che vanno in frigo.</p>
+    <p><b>Compila con costanza:</b> il valore dell'app cresce con la regolarità. Basta poco ogni giorno: è dalla continuità che emergono le relazioni tra ciò che fai e come stai.</p>
+  </div>
+
+  <p class="avviso" style="margin-top:12px">Queste informazioni sono generali e non sostituiscono il parere di medico o farmacista. In caso di dubbi sui tuoi farmaci o sintomi, chiedi sempre a un professionista.</p>
+  </div>`;
+}
 function vistaImpostazioni(){
   let h="";
+  h+=cartaAiuto();
   const tema=(S.impostazioni&&S.impostazioni.tema)||"auto";
   h+=`<div class="card"><h2>🎨 Aspetto</h2>
     <div class="nome-scala" style="font-weight:700;margin-bottom:8px">Modalità scura</div>
@@ -2457,9 +2528,11 @@ create policy "solo i propri dati" on diario
   } else {
     h+=`<p style="margin-top:0">✅ Accesso come <b>${esc(utente.email)}</b></p>
       <div style="display:flex; gap:10px; flex-wrap:wrap">
+        <button class="btn btn-verde" onclick="sincronizza(true)">🔄 Sincronizza ora</button>
         <button class="btn" onclick="esci()">🚪 Esci</button>
       </div>
-      <div class="stato-sync">${statoSync}</div>`;
+      <div class="stato-sync">${statoSync}</div>
+      <div class="sotto">Non vedi i tuoi dati qui? Apri l'app sul dispositivo che li contiene, accedi con la stessa email e premi "Sincronizza ora"; poi torna qui e ripremi.</div>`;
   }
   h+=`</div>`;
   return h;
@@ -2550,19 +2623,37 @@ async function pushRemoto(){
   }catch(e){ statoSync="⚠️ Errore di sincronizzazione: "+(e.message||""); }
   if(vista==="impostazioni") render();
 }
-async function sincronizza(){
-  if(!supa||!utente) return;
+async function sincronizza(manuale){
+  if(!supa||!utente){ if(manuale) mostraToast("Devi prima accedere ☁️"); return; }
   try{
-    statoSync="⏬ Recupero dati dal cloud...";
+    statoSync="⏬ Recupero dati dal cloud..."; if(vista==="impostazioni") render();
     const {data,error}=await supa.from("diario").select("contenuto").eq("user_id",utente.id).maybeSingle();
     if(error) throw error;
     if(data&&data.contenuto){
       S=unisci(data.contenuto, S);
       localStorage.setItem(CHIAVE, JSON.stringify(S));
+      const n=contaVoci(S);
+      if(manuale) mostraToast("Dati aggiornati dal cloud ✓");
+      await pushRemoto();
+      statoSync="☁️ Sincronizzato alle "+new Date().toTimeString().slice(0,5)+" · "+n+" giorni";
+      render();
+    } else {
+      // Nessuna riga nel cloud per questo account: carico i dati locali (se presenti)
+      await pushRemoto();
+      if(contaVoci(S)>0){
+        statoSync="☁️ Sincronizzato: dati di questo dispositivo caricati nel cloud.";
+      } else {
+        statoSync="ℹ️ Nessun dato nel cloud per questo account. Apri l'app sul dispositivo che ha i dati, accedi con la STESSA email e premi 'Sincronizza ora'.";
+        if(manuale) alert("Nessun dato trovato nel cloud per questo account.\n\nProbabilmente il dispositivo che contiene i dati (es. il telefono) non li ha ancora caricati. Aprilo, accedi con la stessa email e premi 'Sincronizza ora', poi riprova qui.");
+      }
       render();
     }
-    await pushRemoto();
-  }catch(e){ statoSync="⚠️ Errore di sincronizzazione: "+(e.message||""); if(vista==="impostazioni")render(); }
+  }catch(e){ statoSync="⚠️ Errore di sincronizzazione: "+(e.message||"")+". Controlla la connessione e riprova."; if(manuale) mostraToast("Sincronizzazione non riuscita ⚠️"); render(); }
+}
+function contaVoci(st){
+  let n=0;
+  for(const pid in (st.voci||{})) n+=Object.keys(st.voci[pid]||{}).length;
+  return n;
 }
 function unisci(remoto, locale){
   const out=JSON.parse(JSON.stringify(remoto));
@@ -2615,6 +2706,10 @@ function unisci(remoto, locale){
     : (locale.impostazioni||out.impostazioni||{oraPromemoria:"20:00"});
   return out;
 }
+
+/* Risincronizza automaticamente quando torna la connessione o si riapre l'app */
+window.addEventListener("online", ()=>{ if(supa&&utente) sincronizza(); });
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && supa&&utente) sincronizza(); });
 
 /* ============ PWA: installazione e offline ============ */
 if("serviceWorker" in navigator){
