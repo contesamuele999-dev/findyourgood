@@ -2616,8 +2616,23 @@ function pianificaPush(){
   clearTimeout(pushTimer);
   pushTimer=setTimeout(pushRemoto, 2500);
 }
+function haQualcheDato(st){
+  if(contaVoci(st)>0) return true;
+  for(const pid in (st.salute||{})){
+    const s=st.salute[pid]||{};
+    if(["farmaci","trattamenti","visite","notizie","ipotesi","cambiamenti","sangue"].some(k=>(s[k]||[]).length)) return true;
+  }
+  return false;
+}
 async function pushRemoto(){
   if(!supa||!utente) return;
+  // SICUREZZA: non sovrascrivere mai il cloud con uno stato completamente vuoto
+  // (es. dispositivo appena ripulito). Così i dati non si perdono per errore.
+  if(!haQualcheDato(S)){
+    statoSync="ℹ️ Nessun dato locale: salvataggio nel cloud saltato per non cancellare i dati.";
+    if(vista==="impostazioni") render();
+    return;
+  }
   try{
     statoSync="⏫ Salvataggio nel cloud...";
     const {error}=await supa.from("diario").upsert({user_id:utente.id, contenuto:S, aggiornato:new Date().toISOString()});
