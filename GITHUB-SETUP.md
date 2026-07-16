@@ -37,13 +37,13 @@ Guida passo passo per pubblicare l'app su internet, gratis, con un indirizzo tip
 
 ## Aggiornare l'app in futuro
 
-Ogni volta che modifichi `find-your-good.html`:
+Ogni volta che modifichi `index.html` (l'unico file dell'app):
 
 1. Doppio clic su **`pubblica.bat`**
 2. Scrivi cosa hai cambiato (o INVIO)
 3. Dopo 1-2 minuti l'indirizzo online e' aggiornato.
 
-Lo script copia automaticamente l'app in `index.html`, che e' la pagina mostrata da GitHub Pages: tu continui a modificare solo `find-your-good.html`.
+`index.html` e' la pagina mostrata da GitHub Pages: e' anche il file che modifichi. (Non esiste piu' un file separato `find-your-good.html`.)
 
 ## Provare in locale (senza pubblicare)
 

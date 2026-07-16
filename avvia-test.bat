@@ -5,11 +5,11 @@ echo ============================================
 echo   Find Your Good - test in locale
 echo ============================================
 echo.
-echo Apro l'app nel browser su http://localhost:8000/find-your-good.html
+echo Apro l'app nel browser su http://localhost:8000/index.html
 echo Per fermare il server: chiudi questa finestra oppure premi CTRL+C.
 echo.
 
-start "" http://localhost:8000/find-your-good.html
+start "" http://localhost:8000/index.html
 
 where python >nul 2>nul
 if %errorlevel%==0 (
@@ -25,5 +25,5 @@ if %errorlevel%==0 (
 
 echo Python non trovato: apro il file direttamente nel browser.
 echo (Alcune funzioni rendono meglio con un server locale: installa Python da https://www.python.org)
-start "" "find-your-good.html"
+start "" "index.html"
 pause

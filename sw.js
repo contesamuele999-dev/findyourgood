@@ -1,9 +1,8 @@
 /* Service worker di Find Your Good: rende l'app installabile e utilizzabile offline. */
-const CACHE = "fyg-cache-v4";
+const CACHE = "fyg-cache-v5";
 const ASSETS = [
   "./",
   "index.html",
-  "find-your-good.html",
   "manifest.json",
   "icon.svg",
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"

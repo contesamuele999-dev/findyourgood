@@ -25,7 +25,7 @@ App per tracciare comportamenti e dati fisici quotidiani e scoprire, tramite cor
 
 ## Architettura
 
-- Un solo file: `find-your-good.html`. Funziona offline, aperto direttamente o da schermata home.
+- Un solo file: `index.html`. Funziona offline, aperto direttamente o da schermata home.
 - Dati in `localStorage` del browser, per profilo, per data (formato `AAAA-MM-GG`).
 - Nessun server, nessun dato inviato all'esterno.
 - Limite noto: le notifiche push a app chiusa non sono possibili con un file locale; il recupero giorni mancanti compensa. In futuro, hosting su un sito + service worker abiliterebbe notifiche vere.

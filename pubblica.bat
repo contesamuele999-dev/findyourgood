@@ -15,10 +15,6 @@ if not %errorlevel%==0 (
   exit /b 1
 )
 
-REM index.html e' la pagina servita da GitHub Pages: la teniamo sempre uguale all'app.
-copy /Y "find-your-good.html" "index.html" >nul
-echo - index.html aggiornato dall'app.
-
 if not exist ".git" goto primoavvio
 goto committa
 
