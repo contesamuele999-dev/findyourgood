@@ -252,6 +252,7 @@ body.modale-aperta{overflow:hidden;}
 "use strict";
 /* ============ DATI E STATO ============ */
 const CHIAVE = "fyg_v1";
+let chiaveDati = CHIAVE;   // casella dati attiva: diventa "per-utente" dopo il login
 let S = carica();
 let vista = "oggi";
 let dataInModifica = oggi();
@@ -263,15 +264,37 @@ let authPronto = false;          // controllo sessione completato
 let promptInstall = null;        // evento per installare la PWA
 let clickTimer = null;           // per distinguere click singolo/doppio sul calendario
 
-function carica(){
+function caricaDa(key){
   try{
-    const raw = localStorage.getItem(CHIAVE);
+    const raw = localStorage.getItem(key);
     if(raw){ const s=JSON.parse(raw); if(!s.salute) s.salute={};
       if(!s.impostazioni) s.impostazioni={}; if(s.impostazioni.tema==null) s.impostazioni.tema="auto";
       return s; }
   }catch(e){}
   const id = "p" + Date.now();
   return { profili:[{id:id, nome:"Io"}], profiloCorrente:id, voci:{}, salute:{}, impostazioni:{oraPromemoria:"20:00", tema:"auto"} };
+}
+function carica(){ return caricaDa(chiaveDati); }
+// Passa alla casella dati del singolo utente: ogni account tiene i suoi dati
+// separati su questo dispositivo, e il login fa una fusione ADDITIVA (cloud + locale di quell'utente).
+function passaUtente(uid){
+  chiaveDati = CHIAVE + "_u_" + uid;
+  let locale = null;
+  try{ const raw = localStorage.getItem(chiaveDati); locale = raw ? JSON.parse(raw) : null; }catch(e){ locale=null; }
+  if(!locale){
+    // Prima volta di questo utente su questo dispositivo: eredita UNA SOLA VOLTA
+    // i dati "vecchi" generici del dispositivo (per non perderli), poi ogni account resta separato.
+    if(!localStorage.getItem("fyg_migrato") && localStorage.getItem(CHIAVE)){
+      locale = caricaDa(CHIAVE);
+      localStorage.setItem("fyg_migrato","1");
+    } else {
+      locale = caricaDa("__nuovo__");   // default vuoto
+    }
+  }
+  S = locale;
+  if(!S.salute) S.salute={};
+  if(!S.impostazioni) S.impostazioni={};
+  localStorage.setItem(chiaveDati, JSON.stringify(S));
 }
 function applicaTema(){
   const t=(S.impostazioni&&S.impostazioni.tema)||"auto";
@@ -284,9 +307,9 @@ function applicaTema(){
   const meta=document.querySelector('meta[name="theme-color"]');
   if(meta) meta.setAttribute("content", scuroAttivo ? "#15171a" : "#2e7d6b");
 }
-function impostaTema(t){ S.impostazioni.tema=t; localStorage.setItem(CHIAVE, JSON.stringify(S)); applicaTema(); render(); }
+function impostaTema(t){ S.impostazioni.tema=t; localStorage.setItem(chiaveDati, JSON.stringify(S)); applicaTema(); render(); }
 function salva(){
-  localStorage.setItem(CHIAVE, JSON.stringify(S));
+  localStorage.setItem(chiaveDati, JSON.stringify(S));
   mostraToast();
   pianificaPush();
 }
@@ -547,7 +570,7 @@ function schermataAccesso(){
 function aggiornaProfiliUI(){
   document.getElementById("streak").textContent="🔥 "+calcolaStreak();
 }
-function cambiaProfilo(id){ S.profiloCorrente=id; localStorage.setItem(CHIAVE, JSON.stringify(S)); dataInModifica=oggi(); render(); }
+function cambiaProfilo(id){ S.profiloCorrente=id; localStorage.setItem(chiaveDati, JSON.stringify(S)); dataInModifica=oggi(); render(); }
 function calcolaStreak(){
   let n=0, d=oggi();
   if(!compilato(d)) d=spostaGiorni(d,-1);
@@ -2283,7 +2306,7 @@ function importa(input){
 function cancellaTutto(){
   if(!confirm("Cancellare DAVVERO tutti i tuoi dati?")) return;
   if(!confirm("Ultima conferma: i dati andranno persi per sempre (a meno che tu non abbia un backup).")) return;
-  localStorage.removeItem(CHIAVE);
+  localStorage.removeItem(chiaveDati);
   S=carica(); render();
 }
 function impostaConvalescenza(val){
@@ -2566,10 +2589,10 @@ function creaClientSupa(){
     supa.auth.getSession().then(({data})=>{
       utente=data.session?data.session.user:null;
       authPronto=true;
-      if(utente) sincronizza();
+      if(utente){ passaUtente(utente.id); sincronizza(); }
       render();
     });
-    supa.auth.onAuthStateChange((_e,sess)=>{ utente=sess?sess.user:null; authPronto=true; render(); });
+    supa.auth.onAuthStateChange((_e,sess)=>{ utente=sess?sess.user:null; if(utente && chiaveDati===CHIAVE) passaUtente(utente.id); authPronto=true; render(); });
   }catch(e){ statoSync="⚠️ Configurazione non valida: controlla URL e chiave."; authPronto=true; render(); }
 }
 async function registrati(){
@@ -2595,13 +2618,16 @@ async function accedi(){
   const {data,error}=await supa.auth.signInWithPassword({email,password});
   if(error){ alert("Accesso non riuscito: "+error.message); return; }
   utente=data.user;
+  passaUtente(utente.id);
   mostraToast("Benvenuto! ✓");
   await sincronizza();
   render();
 }
 async function esci(){
   if(supa) await supa.auth.signOut();
-  utente=null; statoSync=""; render();
+  // Torna alla casella generica e svuota i dati in memoria, così l'account
+  // successivo NON eredita i dati di quello precedente (niente mescolanze).
+  utente=null; statoSync=""; chiaveDati=CHIAVE; S=caricaDa("__logout__"); render();
 }
 async function recuperaPassword(){
   if(!supa){ alert("Servizio non disponibile: riprova online."); return; }
@@ -2649,7 +2675,7 @@ async function sincronizza(manuale){
     if(error) throw error;
     if(data&&data.contenuto){
       S=unisci(data.contenuto, S);
-      localStorage.setItem(CHIAVE, JSON.stringify(S));
+      localStorage.setItem(chiaveDati, JSON.stringify(S));
       const n=contaVoci(S);
       if(manuale) mostraToast("Dati aggiornati dal cloud ✓");
       await pushRemoto();
