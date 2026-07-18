@@ -295,6 +295,7 @@ function passaUtente(uid){
   if(!S.salute) S.salute={};
   if(!S.impostazioni) S.impostazioni={};
   migraMerenda();
+  migraCategorieSangue();
   localStorage.setItem(chiaveDati, JSON.stringify(S));
 }
 /* Migrazione globale: sposta la vecchia "merenda" unica in "merenda pomeriggio" su tutti i giorni/profili */
@@ -415,7 +416,7 @@ function saluteProfilo(){
   if(!S.salute) S.salute={};
   if(!S.salute[S.profiloCorrente]) S.salute[S.profiloCorrente]={};
   const sp=S.salute[S.profiloCorrente];
-  for(const k of ["farmaci","trattamenti","visite","notizie","ipotesi","cambiamenti","sangue"]) if(!sp[k]) sp[k]=[];
+  for(const k of ["farmaci","trattamenti","visite","notizie","ipotesi","cambiamenti","sangue","categorie"]) if(!sp[k]) sp[k]=[];
   return sp;
 }
 function registraCambiamento(data, testo, tipo, rif){
@@ -1776,11 +1777,15 @@ function pearson(xs, ys){
 function cartaSangue(){
   const sp=saluteProfilo();
   if(!sp.sangue||sp.sangue.length===0) return "";
-  const perNome={};
-  for(const e of sp.sangue) (perNome[e.nome]=perNome[e.nome]||[]).push(e);
+  const perCat={};
+  for(const e of sp.sangue){ const k=e.catId||("nome:"+e.nome); (perCat[k]=perCat[k]||[]).push(e); }
   let h=`<div class="card"><h2>🩸 Esami del sangue</h2>`;
-  for(const nome of Object.keys(perNome).sort()){
-    const arr=perNome[nome].slice().sort((a,b)=>a.data<b.data?-1:1);
+  const chiaviCat=Object.keys(perCat).sort((a,b)=>{
+    const na=(categoriaById(sp,a)||{}).nome||perCat[a][0].nome, nb=(categoriaById(sp,b)||{}).nome||perCat[b][0].nome;
+    return norm(na).localeCompare(norm(nb)); });
+  for(const kCat of chiaviCat){
+    const nome=(categoriaById(sp,kCat)||{}).nome||perCat[kCat][0].nome;
+    const arr=perCat[kCat].slice().sort((a,b)=>a.data<b.data?-1:1);
     const primo=arr[0], ultimo=arr[arr.length-1];
     let trend="stabile", cls="trend-stab", freccia="→";
     if(arr.length>=2){
@@ -1938,15 +1943,29 @@ function vistaSalute(){
   h+=`<div class="card"><h2>🩸 Esami del sangue</h2>
     <div class="sotto" style="margin-top:0;margin-bottom:10px">Inserisci i valori dei tuoi esami (glicemia, colesterolo, ferritina, vitamina D…). Con più misurazioni nel tempo, in <b>Analisi</b> vedrai l'andamento e un tentativo di collegamento con come ti senti.</div>`;
   {
-    const perNome={};
-    for(const e of sp.sangue) (perNome[e.nome]=perNome[e.nome]||[]).push(e);
-    for(const nome of Object.keys(perNome).sort()){
-      const arr=perNome[nome].sort((a,b)=>a.data<b.data?1:-1);
-      h+=`<div class="elemento-lista"><div class="titolo"><span>🩸 ${esc(nome)}</span></div>`;
+    // Raggruppa per categoria (aggrega i sinonimi: RBC/Globuli rossi ecc.)
+    const perCat={};
+    for(const e of sp.sangue){ const k=e.catId||("nome:"+e.nome); (perCat[k]=perCat[k]||[]).push(e); }
+    const chiavi=Object.keys(perCat).sort((a,b)=>{
+      const na=(categoriaById(sp,a)||{}).nome||perCat[a][0].nome, nb=(categoriaById(sp,b)||{}).nome||perCat[b][0].nome;
+      return norm(na).localeCompare(norm(nb)); });
+    for(const k of chiavi){
+      const cat=categoriaById(sp,k);
+      const arr=perCat[k].sort((a,b)=>a.data<b.data?1:-1);
+      const titolo=cat?cat.nome:perCat[k][0].nome;
+      const nAlias=cat&&cat.alias?cat.alias.length:0;
+      h+=`<div class="elemento-lista">
+        <div class="titolo"><span>🩸 ${esc(titolo)}${cat&&cat.unita?` <span class="sotto" style="font-weight:400">(${esc(cat.unita)})</span>`:""}</span>
+          <span>${cat?`<button class="btn btn-piccolo" title="Rinomina categoria" onclick="rinominaCategoria('${cat.id}')">✏️</button>
+          <button class="btn btn-piccolo" title="Unità di misura" onclick="cambiaUnitaCategoria('${cat.id}')">📏</button>
+          <button class="btn btn-piccolo" title="Unisci a un'altra categoria" onclick="unisciCategoria('${cat.id}')">🔗</button>`:""}</span></div>`;
+      if(nAlias) h+=`<div class="sotto" style="margin:2px 0 4px">Raggruppa anche: ${cat.alias.map(a=>esc(a)).join(", ")}</div>`;
       for(const e of arr){
         const fuori=(e.rifBasso!=null&&e.valore<e.rifBasso)||(e.rifAlto!=null&&e.valore>e.rifAlto);
-        h+=`<div class="esame-riga"><span>${e.data}</span>
-          <span><span class="val ${fuori?'fuori':''}">${esc(String(e.valore))}${e.unita?" "+esc(e.unita):""}</span>
+        const conv=(e.valoreOrig!=null)?` <span class="sotto" style="display:inline">(orig. ${esc(String(e.valoreOrig))}${e.unitaOrig?" "+esc(e.unitaOrig):""})</span>`:"";
+        const nomeDiverso=cat&&normNome(e.nome)!==normNome(cat.nome)?` <span class="sotto" style="display:inline">· ${esc(e.nome)}</span>`:"";
+        h+=`<div class="esame-riga"><span>${e.data}${nomeDiverso}</span>
+          <span><span class="val ${fuori?'fuori':''}">${esc(String(e.valore))}${e.unita?" "+esc(e.unita):""}</span>${conv}
           ${(e.rifBasso!=null||e.rifAlto!=null)?`<span class="sotto"> (rif. ${e.rifBasso!=null?e.rifBasso:"–"}–${e.rifAlto!=null?e.rifAlto:"–"})</span>`:""}
           <button class="btn btn-piccolo" onclick="eliminaElemento('sangue','${e.id}')">🗑️</button></span></div>`;
       }
@@ -2084,13 +2103,258 @@ function aggiungiNotizia(){
     tipo:document.getElementById("nt-tipo").value, agg:Date.now()});
   salva(); render();
 }
+/* ===== Aggregazione esami: dizionario analiti (sinonimi) + conversione unità =====
+   Ogni voce: nome canonico, unità canonica, sinonimi (IT/EN), fattori di conversione
+   verso l'unità canonica (chiave = unità di partenza normalizzata → fattore moltiplicativo). */
+const ANALITI=[
+  {nome:"Globuli rossi", unita:"10^6/µL", alias:["globuli rossi","rbc","red blood cells","emazie","gr","hematies"], conv:{"10^12/l":1,"x10^12/l":1,"mil/mmc":1,"/ul":0.000001}},
+  {nome:"Globuli bianchi", unita:"10^3/µL", alias:["globuli bianchi","wbc","white blood cells","leucociti","gb"], conv:{"10^9/l":1,"x10^9/l":1,"/ul":0.001,"/mmc":0.001}},
+  {nome:"Piastrine", unita:"10^3/µL", alias:["piastrine","plt","platelets","trombociti"], conv:{"10^9/l":1,"x10^9/l":1,"/ul":0.001,"/mmc":0.001}},
+  {nome:"Emoglobina", unita:"g/dL", alias:["emoglobina","hgb","hb","hemoglobin"], conv:{"g/l":0.1,"mmol/l":1.611}},
+  {nome:"Ematocrito", unita:"%", alias:["ematocrito","hct","hematocrit","htc"], conv:{"l/l":100,"fraction":100}},
+  {nome:"MCV", unita:"fL", alias:["mcv","volume corpuscolare medio","vcm"], conv:{}},
+  {nome:"Glicemia", unita:"mg/dL", alias:["glicemia","glucosio","glucose","glu","glicemia basale"], conv:{"mmol/l":18.0182}},
+  {nome:"Emoglobina glicata", unita:"%", alias:["emoglobina glicata","hba1c","glicata","a1c"], conv:{"mmol/mol":0}},
+  {nome:"Colesterolo totale", unita:"mg/dL", alias:["colesterolo totale","colesterolo","cholesterol","col tot","colest totale"], conv:{"mmol/l":38.67}},
+  {nome:"Colesterolo HDL", unita:"mg/dL", alias:["colesterolo hdl","hdl","hdl cholesterol","col hdl"], conv:{"mmol/l":38.67}},
+  {nome:"Colesterolo LDL", unita:"mg/dL", alias:["colesterolo ldl","ldl","ldl cholesterol","col ldl"], conv:{"mmol/l":38.67}},
+  {nome:"Trigliceridi", unita:"mg/dL", alias:["trigliceridi","triglycerides","tg"], conv:{"mmol/l":88.57}},
+  {nome:"Creatinina", unita:"mg/dL", alias:["creatinina","creatinine","crea"], conv:{"umol/l":0.0113}},
+  {nome:"Azotemia (urea)", unita:"mg/dL", alias:["azotemia","urea","bun","azoto ureico"], conv:{"mmol/l":6.006}},
+  {nome:"Acido urico", unita:"mg/dL", alias:["acido urico","uric acid","uricemia"], conv:{"umol/l":0.0168}},
+  {nome:"Bilirubina totale", unita:"mg/dL", alias:["bilirubina totale","bilirubina","bilirubin","bil tot"], conv:{"umol/l":0.0585}},
+  {nome:"Sideremia (ferro)", unita:"µg/dL", alias:["sideremia","ferro","iron","fe"], conv:{"umol/l":5.587}},
+  {nome:"Ferritina", unita:"ng/mL", alias:["ferritina","ferritin"], conv:{"ug/l":1,"µg/l":1,"pmol/l":0.445}},
+  {nome:"Transferrina", unita:"mg/dL", alias:["transferrina","transferrin"], conv:{"g/l":100,"umol/l":8.0}},
+  {nome:"Vitamina D", unita:"ng/mL", alias:["vitamina d","25 oh vitamina d","25-oh vitamina d","vit d","vitamin d","25(oh)d","calcidiolo"], conv:{"nmol/l":0.4006}},
+  {nome:"Vitamina B12", unita:"pg/mL", alias:["vitamina b12","b12","cobalamina","vit b12","vitamin b12"], conv:{"pmol/l":1.355,"ng/l":1}},
+  {nome:"Folati", unita:"ng/mL", alias:["folati","acido folico","folate","folic acid","vitamina b9"], conv:{"nmol/l":0.4413,"ug/l":1}},
+  {nome:"TSH", unita:"mUI/L", alias:["tsh","tireotropina","thyrotropin"], conv:{"uui/ml":1,"miu/l":1,"uiu/ml":1}},
+  {nome:"FT3", unita:"pg/mL", alias:["ft3","triiodotironina libera","free t3"], conv:{"pmol/l":0.651}},
+  {nome:"FT4", unita:"ng/dL", alias:["ft4","tiroxina libera","free t4"], conv:{"pmol/l":0.0777}},
+  {nome:"Sodio", unita:"mmol/L", alias:["sodio","sodium","na","natriemia"], conv:{"meq/l":1}},
+  {nome:"Potassio", unita:"mmol/L", alias:["potassio","potassium","k","kaliemia"], conv:{"meq/l":1}},
+  {nome:"Cloro", unita:"mmol/L", alias:["cloro","chloride","cl","cloremia"], conv:{"meq/l":1}},
+  {nome:"Calcio", unita:"mg/dL", alias:["calcio","calcium","ca","calcemia"], conv:{"mmol/l":4.008,"meq/l":2.004}},
+  {nome:"Magnesio", unita:"mg/dL", alias:["magnesio","magnesium","mg","magnesiemia"], conv:{"mmol/l":2.431,"meq/l":1.215}},
+  {nome:"Fosforo", unita:"mg/dL", alias:["fosforo","fosfato","phosphorus","phosphate"], conv:{"mmol/l":3.097}},
+  {nome:"AST (GOT)", unita:"U/L", alias:["ast","got","aspartato aminotransferasi","sgot","transaminasi got"], conv:{"ukat/l":60}},
+  {nome:"ALT (GPT)", unita:"U/L", alias:["alt","gpt","alanina aminotransferasi","sgpt","transaminasi gpt"], conv:{"ukat/l":60}},
+  {nome:"Gamma GT", unita:"U/L", alias:["gamma gt","ggt","gamma glutamil transferasi","g gt"], conv:{"ukat/l":60}},
+  {nome:"Proteina C reattiva", unita:"mg/L", alias:["proteina c reattiva","pcr","crp","c reactive protein"], conv:{"mg/dl":10,"nmol/l":0.105}},
+  {nome:"VES", unita:"mm/h", alias:["ves","velocita di eritrosedimentazione","esr"], conv:{}},
+  {nome:"Albumina", unita:"g/dL", alias:["albumina","albumin"], conv:{"g/l":0.1}},
+  {nome:"Proteine totali", unita:"g/dL", alias:["proteine totali","protidemia totale","total protein","protidemia"], conv:{"g/l":0.1}},
+  // --- Emocromo / formula leucocitaria ---
+  {nome:"MCH", unita:"pg", alias:["mch","contenuto emoglobinico medio","hb corpuscolare media"], conv:{}},
+  {nome:"MCHC", unita:"g/dL", alias:["mchc","concentrazione emoglobinica media"], conv:{"g/l":0.1}},
+  {nome:"RDW", unita:"%", alias:["rdw","ampiezza distribuzione eritrocitaria","rdw-cv"], conv:{}},
+  {nome:"MPV", unita:"fL", alias:["mpv","volume piastrinico medio"], conv:{}},
+  {nome:"Neutrofili %", unita:"%", alias:["neutrofili","neutrofili %","neutrophils","neu %"], conv:{}},
+  {nome:"Neutrofili (assoluti)", unita:"10^3/µL", alias:["neutrofili assoluti","neutrofili #","neu #","neutrophils abs"], conv:{"10^9/l":1,"/ul":0.001,"/mmc":0.001}},
+  {nome:"Linfociti %", unita:"%", alias:["linfociti","linfociti %","lymphocytes","lym %"], conv:{}},
+  {nome:"Linfociti (assoluti)", unita:"10^3/µL", alias:["linfociti assoluti","linfociti #","lym #","lymphocytes abs"], conv:{"10^9/l":1,"/ul":0.001,"/mmc":0.001}},
+  {nome:"Monociti %", unita:"%", alias:["monociti","monociti %","monocytes","mon %"], conv:{}},
+  {nome:"Monociti (assoluti)", unita:"10^3/µL", alias:["monociti assoluti","monociti #","mon #"], conv:{"10^9/l":1,"/ul":0.001,"/mmc":0.001}},
+  {nome:"Eosinofili %", unita:"%", alias:["eosinofili","eosinofili %","eosinophils","eos %"], conv:{}},
+  {nome:"Eosinofili (assoluti)", unita:"10^3/µL", alias:["eosinofili assoluti","eosinofili #","eos #"], conv:{"10^9/l":1,"/ul":0.001,"/mmc":0.001}},
+  {nome:"Basofili %", unita:"%", alias:["basofili","basofili %","basophils","bas %"], conv:{}},
+  {nome:"Basofili (assoluti)", unita:"10^3/µL", alias:["basofili assoluti","basofili #","bas #"], conv:{"10^9/l":1,"/ul":0.001,"/mmc":0.001}},
+  {nome:"Reticolociti", unita:"%", alias:["reticolociti","reticulocytes","retic"], conv:{}},
+  // --- Fegato / enzimi ---
+  {nome:"Fosfatasi alcalina", unita:"U/L", alias:["fosfatasi alcalina","alp","alkaline phosphatase","fal"], conv:{"ukat/l":60}},
+  {nome:"LDH", unita:"U/L", alias:["ldh","lattato deidrogenasi","lactate dehydrogenase"], conv:{"ukat/l":60}},
+  {nome:"Bilirubina diretta", unita:"mg/dL", alias:["bilirubina diretta","bilirubina coniugata","direct bilirubin","bil diretta"], conv:{"umol/l":0.0585}},
+  {nome:"Bilirubina indiretta", unita:"mg/dL", alias:["bilirubina indiretta","bilirubina non coniugata","indirect bilirubin","bil indiretta"], conv:{"umol/l":0.0585}},
+  {nome:"Colinesterasi", unita:"U/L", alias:["colinesterasi","pseudocolinesterasi","che","chE"], conv:{"ukat/l":60}},
+  {nome:"Amilasi", unita:"U/L", alias:["amilasi","amylase","amilasi pancreatica"], conv:{"ukat/l":60}},
+  {nome:"Lipasi", unita:"U/L", alias:["lipasi","lipase"], conv:{"ukat/l":60}},
+  // --- Rene ---
+  {nome:"eGFR (filtrato)", unita:"mL/min", alias:["egfr","gfr","filtrato glomerulare","vfg","velocita filtrazione glomerulare"], conv:{}},
+  {nome:"Cistatina C", unita:"mg/L", alias:["cistatina c","cystatin c"], conv:{}},
+  {nome:"Microalbuminuria", unita:"mg/L", alias:["microalbuminuria","albuminuria","microalbumina"], conv:{}},
+  // --- Elettroliti / minerali ---
+  {nome:"Calcio ionizzato", unita:"mmol/L", alias:["calcio ionizzato","calcium ionized","ca ionizzato","calcio ione"], conv:{"mg/dl":0.2495,"meq/l":0.5}},
+  {nome:"Bicarbonati", unita:"mmol/L", alias:["bicarbonati","bicarbonato","hco3","co2 totale"], conv:{"meq/l":1}},
+  {nome:"Zinco", unita:"µg/dL", alias:["zinco","zinc","zn"], conv:{"umol/l":6.538}},
+  {nome:"Rame", unita:"µg/dL", alias:["rame","copper","cu","cupremia"], conv:{"umol/l":6.353}},
+  {nome:"Selenio", unita:"µg/L", alias:["selenio","selenium","se"], conv:{"umol/l":78.96}},
+  // --- Assetto marziale ---
+  {nome:"Capacità legante il ferro (TIBC)", unita:"µg/dL", alias:["tibc","capacita legante il ferro","transferrina totale tibc","capacita ferro legante"], conv:{"umol/l":5.587}},
+  {nome:"Saturazione transferrina", unita:"%", alias:["saturazione transferrina","tsat","saturazione della transferrina","indice di saturazione"], conv:{}},
+  // --- Tiroide ---
+  {nome:"T3 totale", unita:"ng/dL", alias:["t3 totale","triiodotironina totale","total t3"], conv:{"nmol/l":65.1}},
+  {nome:"T4 totale", unita:"µg/dL", alias:["t4 totale","tiroxina totale","total t4"], conv:{"nmol/l":0.0777}},
+  {nome:"Tireoglobulina", unita:"ng/mL", alias:["tireoglobulina","thyroglobulin","tg tiroide"], conv:{"ug/l":1}},
+  {nome:"Anti-TPO", unita:"UI/mL", alias:["anti tpo","anticorpi anti tpo","anti perossidasi","ab tpo","tpoab"], conv:{"ku/l":1,"iu/ml":1}},
+  {nome:"Anti-Tg", unita:"UI/mL", alias:["anti tg","anticorpi anti tireoglobulina","abtg","tgab"], conv:{"ku/l":1,"iu/ml":1}},
+  // --- Vitamine ---
+  {nome:"Vitamina A", unita:"µg/dL", alias:["vitamina a","retinolo","vitamin a","retinol"], conv:{"umol/l":28.65}},
+  {nome:"Vitamina E", unita:"mg/L", alias:["vitamina e","tocoferolo","vitamin e"], conv:{"umol/l":0.4306}},
+  {nome:"Vitamina B6", unita:"µg/L", alias:["vitamina b6","piridossina","vitamin b6","plp"], conv:{}},
+  {nome:"Vitamina C", unita:"mg/dL", alias:["vitamina c","acido ascorbico","vitamin c","ascorbato"], conv:{"umol/l":0.01761}},
+  // --- Diabete / metabolismo ---
+  {nome:"Insulina", unita:"µU/mL", alias:["insulina","insulin","insulinemia"], conv:{"pmol/l":0.144,"miu/l":1,"uui/ml":1}},
+  {nome:"Peptide C", unita:"ng/mL", alias:["peptide c","c peptide","c-peptide","cpeptide"], conv:{"nmol/l":3.021}},
+  {nome:"Fruttosamina", unita:"µmol/L", alias:["fruttosamina","fructosamine"], conv:{}},
+  {nome:"HOMA index", unita:"", alias:["homa","homa index","homa ir","indice homa"], conv:{}},
+  // --- Lipidi avanzati ---
+  {nome:"Apolipoproteina A1", unita:"mg/dL", alias:["apolipoproteina a1","apo a1","apoa1"], conv:{"g/l":100}},
+  {nome:"Apolipoproteina B", unita:"mg/dL", alias:["apolipoproteina b","apo b","apob"], conv:{"g/l":100}},
+  {nome:"Lipoproteina(a)", unita:"mg/dL", alias:["lipoproteina a","lp(a)","lpa","lipoprotein a"], conv:{}},
+  {nome:"Omocisteina", unita:"µmol/L", alias:["omocisteina","homocysteine","hcy"], conv:{"mg/l":7.397}},
+  // --- Infiammazione / immunità ---
+  {nome:"PCR ad alta sensibilità", unita:"mg/L", alias:["pcr hs","hs crp","hscrp","pcr alta sensibilita","proteina c reattiva hs"], conv:{"mg/dl":10}},
+  {nome:"Fibrinogeno", unita:"mg/dL", alias:["fibrinogeno","fibrinogen"], conv:{"g/l":100,"umol/l":340}},
+  {nome:"Procalcitonina", unita:"ng/mL", alias:["procalcitonina","pct","procalcitonin"], conv:{"ug/l":1}},
+  {nome:"Complemento C3", unita:"mg/dL", alias:["complemento c3","c3","frazione c3"], conv:{"g/l":100}},
+  {nome:"Complemento C4", unita:"mg/dL", alias:["complemento c4","c4","frazione c4"], conv:{"g/l":100}},
+  {nome:"IgG", unita:"mg/dL", alias:["igg","immunoglobuline g","immunoglobulin g"], conv:{"g/l":100}},
+  {nome:"IgA", unita:"mg/dL", alias:["iga","immunoglobuline a","immunoglobulin a"], conv:{"g/l":100}},
+  {nome:"IgM", unita:"mg/dL", alias:["igm","immunoglobuline m","immunoglobulin m"], conv:{"g/l":100}},
+  {nome:"IgE totali", unita:"UI/mL", alias:["ige","ige totali","immunoglobuline e","total ige"], conv:{"ku/l":1,"iu/ml":1}},
+  // --- Cuore ---
+  {nome:"Troponina", unita:"ng/L", alias:["troponina","troponina i","troponina t","troponin","hs troponina","tni","tnt"], conv:{"ng/ml":1000,"ug/l":1000}},
+  {nome:"NT-proBNP", unita:"pg/mL", alias:["nt probnp","ntprobnp","nt-probnp","probnp"], conv:{"ng/l":1,"pmol/l":8.457}},
+  {nome:"BNP", unita:"pg/mL", alias:["bnp","peptide natriuretico"], conv:{"ng/l":1}},
+  {nome:"CK (creatinchinasi)", unita:"U/L", alias:["ck","cpk","creatinchinasi","creatine kinase","ck totale"], conv:{"ukat/l":60}},
+  {nome:"CK-MB", unita:"U/L", alias:["ck mb","ckmb","creatinchinasi mb"], conv:{"ukat/l":60}},
+  {nome:"Mioglobina", unita:"ng/mL", alias:["mioglobina","myoglobin"], conv:{"ug/l":1}},
+  // --- Ormoni ---
+  {nome:"Cortisolo", unita:"µg/dL", alias:["cortisolo","cortisol","cortisolemia"], conv:{"nmol/l":0.0363}},
+  {nome:"Testosterone", unita:"ng/dL", alias:["testosterone","testosterone totale","total testosterone"], conv:{"nmol/l":28.84,"ng/ml":100}},
+  {nome:"Testosterone libero", unita:"pg/mL", alias:["testosterone libero","free testosterone","testosterone free"], conv:{"pmol/l":0.288}},
+  {nome:"Estradiolo", unita:"pg/mL", alias:["estradiolo","estradiol","e2","17 beta estradiolo"], conv:{"pmol/l":0.272}},
+  {nome:"Progesterone", unita:"ng/mL", alias:["progesterone","progesteron"], conv:{"nmol/l":0.3145}},
+  {nome:"Prolattina", unita:"ng/mL", alias:["prolattina","prolactin","prl"], conv:{"miu/l":0.0472,"uui/ml":0.0472}},
+  {nome:"LH", unita:"mUI/mL", alias:["lh","ormone luteinizzante","luteinizing hormone"], conv:{"ui/l":1,"iu/l":1}},
+  {nome:"FSH", unita:"mUI/mL", alias:["fsh","ormone follicolo stimolante","follicle stimulating hormone"], conv:{"ui/l":1,"iu/l":1}},
+  {nome:"DHEA-S", unita:"µg/dL", alias:["dhea s","dheas","deidroepiandrosterone solfato"], conv:{"umol/l":36.85}},
+  {nome:"SHBG", unita:"nmol/L", alias:["shbg","globulina legante ormoni sessuali"], conv:{}},
+  {nome:"Paratormone (PTH)", unita:"pg/mL", alias:["paratormone","pth","parathyroid hormone","paratormone intatto"], conv:{"pmol/l":9.434,"ng/l":1}},
+  {nome:"IGF-1", unita:"ng/mL", alias:["igf 1","igf-1","somatomedina c","insulin like growth factor"], conv:{"nmol/l":7.649,"ug/l":1}},
+  {nome:"Aldosterone", unita:"ng/dL", alias:["aldosterone"], conv:{"pmol/l":0.036}},
+  {nome:"Beta-HCG", unita:"mUI/mL", alias:["beta hcg","hcg","gonadotropina corionica","b-hcg"], conv:{"ui/l":1,"iu/l":1}},
+  // --- Coagulazione ---
+  {nome:"INR", unita:"", alias:["inr","international normalized ratio"], conv:{}},
+  {nome:"PT (protrombina)", unita:"%", alias:["pt","tempo di protrombina","attivita protrombinica","prothrombin time"], conv:{}},
+  {nome:"aPTT", unita:"s", alias:["aptt","ptt","tempo di tromboplastina parziale"], conv:{}},
+  {nome:"D-dimero", unita:"ng/mL", alias:["d dimero","d-dimero","d dimer","ddimero"], conv:{"ug/ml":1000,"mg/l":1000,"ug/l":1}},
+  // --- Marcatori tumorali ---
+  {nome:"PSA totale", unita:"ng/mL", alias:["psa","psa totale","antigene prostatico specifico","prostate specific antigen"], conv:{"ug/l":1}},
+  {nome:"PSA libero", unita:"ng/mL", alias:["psa libero","free psa","psa free"], conv:{"ug/l":1}},
+  {nome:"CEA", unita:"ng/mL", alias:["cea","antigene carcinoembrionario","carcinoembryonic antigen"], conv:{"ug/l":1}},
+  {nome:"Alfafetoproteina (AFP)", unita:"ng/mL", alias:["afp","alfafetoproteina","alpha fetoprotein","alfa feto proteina"], conv:{"ug/l":1}},
+  {nome:"CA 19-9", unita:"U/mL", alias:["ca 19 9","ca19-9","ca19.9","ca 19.9"], conv:{"ku/l":1}},
+  {nome:"CA 125", unita:"U/mL", alias:["ca 125","ca125"], conv:{"ku/l":1}},
+  {nome:"CA 15-3", unita:"U/mL", alias:["ca 15 3","ca15-3","ca15.3"], conv:{"ku/l":1}}
+];
+function normNome(s){ return norm(String(s==null?"":s)).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g," ").trim(); }
+function normU(u){ return String(u==null?"":u).toLowerCase().replace(/\s/g,"").replace(/µ|μ/g,"u").replace(/litro|liter/g,"l").replace(/×/g,"x"); }
+function riconosciAnalita(nome){
+  const n=normNome(nome); if(!n) return null; let best=null;
+  for(const a of ANALITI){ for(const raw of a.alias){ const al=normNome(raw);
+    let ok=false;
+    if(n===al) ok=true;
+    else if(al.length>=4 && (" "+n+" ").includes(" "+al+" ")) ok=true;
+    else if(al.length>=5 && n.includes(al)) ok=true;
+    if(ok && (!best || al.length>best.len)) best={a, len:al.length};
+  }}
+  return best?best.a:null;
+}
+/* Converte un valore verso l'unità canonica della categoria, se il fattore è noto.
+   Ritorna {valore, unita} già convertiti, oppure il valore originale se la conversione è ignota. */
+function convertiUnita(valore, unitaFrom, cat, built){
+  if(valore==null||isNaN(valore)) return {valore, unita:unitaFrom||(cat&&cat.unita)||""};
+  const target=(cat&&cat.unita)||(built&&built.unita)||unitaFrom||"";
+  const uf=normU(unitaFrom), ut=normU(target);
+  if(!uf) return {valore, unita:target};            // nessuna unità indicata: assumo già canonica
+  if(uf===ut) return {valore, unita:target};        // già nell'unità giusta
+  const table=(built&&built.conv)||{};
+  if(table[uf]!=null && table[uf]!==0) return {valore:+( valore*table[uf] ).toPrecision(6), unita:target};
+  return {valore, unita:unitaFrom};                 // conversione ignota: lascio l'originale
+}
+/* Assegna (o crea) una categoria per un esame, imparando l'alias e convertendo l'unità.
+   Ritorna {catId, valore, unita, valoreOrig, unitaOrig}. */
+function assegnaCategoria(sp, nome, unita, valore){
+  if(!sp.categorie) sp.categorie=[];
+  const built=riconosciAnalita(nome);
+  const nN=normNome(nome);
+  let cat=null;
+  for(const c of sp.categorie){
+    if((c.alias||[]).some(a=>normNome(a)===nN)) { cat=c; break; }
+    if(normNome(c.nome)===nN){ cat=c; break; }
+    if(built && normNome(c.nome)===normNome(built.nome)){ cat=c; break; }
+    if(built && (c.builtNome && normNome(c.builtNome)===normNome(built.nome))){ cat=c; break; }
+  }
+  if(!cat){
+    cat={ id:"cat"+Date.now()+Math.floor(Math.random()*9999),
+      nome: built?built.nome:norm(nome), unita: built?built.unita:norm(unita||""),
+      builtNome: built?built.nome:null, alias:[] };
+    sp.categorie.push(cat);
+  }
+  if(nN && normNome(cat.nome)!==nN && !(cat.alias||[]).some(a=>normNome(a)===nN)){ (cat.alias=cat.alias||[]).push(norm(nome)); }
+  const conv=convertiUnita(valore, unita, cat, built);
+  const convertito = conv.unita!==(unita||cat.unita) || conv.valore!==valore;
+  return { catId:cat.id, valore:conv.valore, unita:conv.unita,
+           valoreOrig: convertito?valore:null, unitaOrig: convertito?(unita||""):null };
+}
+function categoriaById(sp, id){ return (sp.categorie||[]).find(c=>c.id===id)||null; }
+/* Anteprima (senza modificare i dati) della categoria in cui finirà un esame */
+function anteprimaCategoria(nome){
+  const sp=saluteProfilo(); const nN=normNome(nome);
+  for(const c of sp.categorie||[]){ if((c.alias||[]).some(a=>normNome(a)===nN)||normNome(c.nome)===nN) return c.nome; }
+  const b=riconosciAnalita(nome);
+  if(b){ for(const c of sp.categorie||[]){ if(normNome(c.nome)===normNome(b.nome)) return c.nome; } return b.nome; }
+  return norm(nome);
+}
+/* Migrazione: assegna una categoria alle voci sangue che non ce l'hanno ancora */
+function migraCategorieSangue(){
+  const salute=S.salute||{};
+  for(const prof of Object.keys(salute)){
+    const sp=salute[prof]; if(!sp||!sp.sangue) continue; if(!sp.categorie) sp.categorie=[];
+    for(const e of sp.sangue){
+      if(e.catId && categoriaById(sp,e.catId)) continue;
+      const r=assegnaCategoria(sp, e.nome, e.unita, e.valore);
+      e.catId=r.catId;
+      if(r.valoreOrig!=null){ e.valoreOrig=r.valoreOrig; e.unitaOrig=r.unitaOrig; e.valore=r.valore; e.unita=r.unita; }
+    }
+  }
+}
+function rinominaCategoria(catId){
+  const sp=saluteProfilo(); const c=categoriaById(sp,catId); if(!c) return;
+  const nuovo=prompt("Nome della categoria:", c.nome); if(nuovo===null) return;
+  const n=norm(nuovo).trim(); if(!n) return; c.nome=n; salva(); render();
+}
+function cambiaUnitaCategoria(catId){
+  const sp=saluteProfilo(); const c=categoriaById(sp,catId); if(!c) return;
+  const nuovo=prompt("Unità di misura canonica per «"+c.nome+"» (i nuovi valori verranno convertiti a questa quando possibile):", c.unita||""); if(nuovo===null) return;
+  c.unita=norm(nuovo).trim(); salva(); render();
+}
+function unisciCategoria(catId){
+  const sp=saluteProfilo(); const c=categoriaById(sp,catId); if(!c) return;
+  const altre=(sp.categorie||[]).filter(x=>x.id!==catId);
+  if(!altre.length){ alert("Non ci sono altre categorie con cui unire."); return; }
+  const elenco=altre.map((x,i)=>`${i+1}. ${x.nome}`).join("\n");
+  const sc=prompt("Unisci «"+c.nome+"» dentro quale categoria? Scrivi il numero:\n"+elenco); if(sc===null) return;
+  const idx=parseInt(sc,10)-1; if(isNaN(idx)||!altre[idx]){ alert("Scelta non valida."); return; }
+  const dest=altre[idx];
+  // sposta le voci e impara gli alias
+  for(const e of sp.sangue){ if(e.catId===catId) e.catId=dest.id; }
+  dest.alias=dest.alias||[]; for(const a of [c.nome].concat(c.alias||[])){ if(!dest.alias.some(x=>normNome(x)===normNome(a))&&normNome(dest.nome)!==normNome(a)) dest.alias.push(a); }
+  sp.categorie=sp.categorie.filter(x=>x.id!==catId);
+  salva(); render();
+}
 function aggiungiSangue(){
   const nome=valore("sg-nome"); if(!nome){ alert("Scrivi il nome dell'esame."); return; }
   const val=parseFloat(String(valore("sg-val")).replace(",","."));
   if(isNaN(val)){ alert("Inserisci un valore numerico."); return; }
   const min=parseFloat(String(valore("sg-min")).replace(",",".")), max=parseFloat(String(valore("sg-max")).replace(",","."));
-  saluteProfilo().sangue.push({id:"s"+Date.now(), data:valore("sg-data")||oggi(), nome, valore:val,
-    unita:valore("sg-unita"), rifBasso:isNaN(min)?null:min, rifAlto:isNaN(max)?null:max, agg:Date.now()});
+  const sp=saluteProfilo();
+  const cat=assegnaCategoria(sp, nome, valore("sg-unita"), val);
+  sp.sangue.push({id:"s"+Date.now(), data:valore("sg-data")||oggi(), nome, catId:cat.catId, valore:cat.valore,
+    unita:cat.unita, valoreOrig:cat.valoreOrig, unitaOrig:cat.unitaOrig,
+    rifBasso:isNaN(min)?null:min, rifAlto:isNaN(max)?null:max, agg:Date.now()});
   mostraToast("Valore aggiunto ✓");
   salva(); render();
 }
@@ -2253,7 +2517,8 @@ function mostraRevisioneImport(){
         <input type="text" value="${esc(c.unita||'')}" oninput="impRighe[${i}].unita=norm(this.value)" placeholder="Unità" style="width:90px;padding:6px;border:2px solid var(--bordo);border-radius:10px;background:var(--input);color:var(--testo)">
         <input type="text" value="${c.rifBasso!=null?esc(String(c.rifBasso)):''}" oninput="impRighe[${i}].rifBasso=this.value===''?null:numIt(this.value)" placeholder="Rif.min" style="width:76px;padding:6px;border:2px solid var(--bordo);border-radius:10px;background:var(--input);color:var(--testo)">
         <input type="text" value="${c.rifAlto!=null?esc(String(c.rifAlto)):''}" oninput="impRighe[${i}].rifAlto=this.value===''?null:numIt(this.value)" placeholder="Rif.max" style="width:76px;padding:6px;border:2px solid var(--bordo);border-radius:10px;background:var(--input);color:var(--testo)">
-      </div></div>`;
+      </div>
+      <div class="sotto" style="margin-top:4px">→ Categoria: <b>${esc(anteprimaCategoria(c.nome))}</b></div></div>`;
   });
   const html=`<div class="modale-overlay" onclick="if(event.target===this)chiudiModale()">
     <div class="modale"><div class="maniglia"></div>
@@ -2276,8 +2541,10 @@ function confermaImport(){
   document.querySelectorAll(".imp-ck").forEach(ck=>{
     if(!ck.checked) return; const c=impRighe[+ck.dataset.i];
     if(!c||!c.nome||isNaN(c.valore)) return;
-    sp.sangue.push({id:"s"+Date.now()+"_"+n, data:c.data||data, nome:norm(c.nome), valore:c.valore,
-      unita:c.unita?norm(c.unita):"", rifBasso:(c.rifBasso==null||isNaN(c.rifBasso))?null:c.rifBasso,
+    const cat=assegnaCategoria(sp, norm(c.nome), c.unita?norm(c.unita):"", c.valore);
+    sp.sangue.push({id:"s"+Date.now()+"_"+n, data:c.data||data, nome:norm(c.nome), catId:cat.catId, valore:cat.valore,
+      unita:cat.unita, valoreOrig:cat.valoreOrig, unitaOrig:cat.unitaOrig,
+      rifBasso:(c.rifBasso==null||isNaN(c.rifBasso))?null:c.rifBasso,
       rifAlto:(c.rifAlto==null||isNaN(c.rifAlto))?null:c.rifAlto, agg:Date.now()});
     n++;
   });
@@ -2906,6 +3173,7 @@ async function sincronizza(manuale){
     if(data&&data.contenuto){
       S=unisci(data.contenuto, S);
       migraMerenda();
+      migraCategorieSangue();
       localStorage.setItem(chiaveDati, JSON.stringify(S));
       const n=contaVoci(S);
       if(manuale) mostraToast("Dati aggiornati dal cloud ✓");
