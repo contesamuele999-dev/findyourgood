@@ -294,7 +294,19 @@ function passaUtente(uid){
   S = locale;
   if(!S.salute) S.salute={};
   if(!S.impostazioni) S.impostazioni={};
+  migraMerenda();
   localStorage.setItem(chiaveDati, JSON.stringify(S));
+}
+/* Migrazione globale: sposta la vecchia "merenda" unica in "merenda pomeriggio" su tutti i giorni/profili */
+function migraMerenda(){
+  const voci=S.voci||{};
+  for(const prof of Object.keys(voci)){
+    const g=voci[prof]||{};
+    for(const d of Object.keys(g)){
+      const p=g[d]&&g[d].pasti;
+      if(p&&p.merenda){ if(!p.merendaPomeriggio) p.merendaPomeriggio=p.merenda; delete p.merenda; }
+    }
+  }
 }
 function applicaTema(){
   const t=(S.impostazioni&&S.impostazioni.tema)||"auto";
@@ -313,7 +325,11 @@ function salva(){
   mostraToast();
   pianificaPush();
 }
-function esc(t){ return String(t==null?"":t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+/* Normalizza il testo in forma NFC: le tastiere iOS/macOS producono accenti "decomposti"
+   (es. "e" + segno accento separato) che possono comparire come simboli strani (�/riquadri).
+   Applicata a TUTTI i testi inseribili per prevenire l'errore. */
+function norm(t){ t=String(t==null?"":t); try{ return t.normalize("NFC"); }catch(e){ return t; } }
+function esc(t){ return norm(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 let toastTimer=null;
 function mostraToast(testo){
   const t=document.getElementById("toast");
@@ -347,6 +363,8 @@ function voce(data){
   const v=vociProfilo();
   if(!v[data]) v[data]={ pasti:{}, sintomi:[], attivita:[] };
   if(!v[data].pasti) v[data].pasti={};
+  // Migrazione: la vecchia "merenda" unica diventa "merenda pomeriggio"
+  if(v[data].pasti.merenda){ if(!v[data].pasti.merendaPomeriggio) v[data].pasti.merendaPomeriggio=v[data].pasti.merenda; delete v[data].pasti.merenda; }
   if(!v[data].sintomi) v[data].sintomi=[];
   if(!v[data].attivita) v[data].attivita=[];
   if(!v[data].attivitaTipo) v[data].attivitaTipo={};
@@ -372,6 +390,7 @@ function traccia(k){
 }
 function imposta(campo, valore){
   const v=voce(dataInModifica);
+  if(typeof valore==="string") valore=norm(valore);
   v[campo] = (v[campo]===valore && typeof valore==="number") ? null : valore;
   v.agg=Date.now();
   salva(); render();
@@ -386,7 +405,8 @@ function togglaLista(campo, chiave){
 function impostaPasto(pasto, campo, valore){
   const v=voce(dataInModifica);
   if(!v.pasti[pasto]) v.pasti[pasto]={};
-  if(campo==="q" && v.pasti[pasto].q===valore) v.pasti[pasto].q=null;
+  if(typeof valore==="string") valore=norm(valore);
+  if((campo==="q"||campo==="macro") && v.pasti[pasto][campo]===valore) v.pasti[pasto][campo]=null;
   else v.pasti[pasto][campo]=valore;
   v.agg=Date.now();
   salva(); render();
@@ -466,7 +486,9 @@ const SONNO_EMOJI=["😫","😩","😐","😊","😴"];
 const TEMP_EMOJI=["🥶","❄️","😐","☀️","🥵"];
 const TEMP_ETI=["Molto freddo","Freddo","Normale","Caldo","Molto caldo"];
 function tempTesto(n){ if(n==null) return ""; return (n>=1&&n<=5)?TEMP_ETI[n-1]:(n+"°C"); }
-const PASTI=[["colazione","🍞 Colazione"],["pranzo","🍝 Pranzo"],["cena","🍲 Cena"],["merenda","🍎 Merende"]];
+const PASTI=[["colazione","🍞 Colazione"],["merendaMattino","🍎 Merenda mattino"],["pranzo","🍝 Pranzo"],["merendaPomeriggio","🍏 Merenda pomeriggio"],["cena","🍲 Cena"]];
+/* Opzione facoltativa: tipo prevalente di pasto, da correlare col resto */
+const MACRO=[["carbo","🍞 Carboidrati"],["proteine","🥩 Proteine"],["misto","⚖️ Misto"]];
 const QUANTITA=[["saltato","Saltato"],["poco","Poco"],["normale","Normale"],["belPo","Un bel po'"],["troppo","Troppo"]];
 const SOLE=[["zero","🚫 Niente"],["q15","Meno di 15 min"],["q30","15-30 min"],["q30p","Più di 30 min"]];
 function soleSufficiente(v){ return v.sole==="q30p" || (v.sole==="q30" && !v.nuvoloso); }
@@ -668,8 +690,8 @@ function vistaOggi(){
           <input type="range" min="0" max="660" step="15" value="${posSlider(wake,240)}" oninput="mostraOraSlider(this,240)" onchange="impostaOraSonno('oraSveglia',240,this.value)">
           <input type="time" class="val-ora-inp" value="${wake}" onchange="imposta('oraSveglia',this.value)" style="flex:0 0 96px;padding:6px"></div>
         <div class="sotto" style="margin:0 0 4px">${(!v.oraDormire&&!v.oraSveglia)?"Orari predefiniti (impostabili in Altro › Sonno). Muovi gli slider o tocca l'ora per questo giorno.":"Passi di 15 minuti. Puoi anche toccare l'ora per precisione."}</div>`; })()}
-      <div class="toggle-riga"><span>Quante volte ti sei svegliato?</span>
-        <input type="number" min="0" inputmode="numeric" style="width:80px" value="${v.risvegli!=null?v.risvegli:""}" placeholder="0" onchange="impostaCampoNum('risvegli',this.value)"></div>
+      <div class="nome-scala" style="font-weight:700;margin:10px 0 6px">🌙 Quante volte ti sei svegliato?</div>
+      <div class="chips">${[0,1,2,3,4,5].map(n=>`<button class="chip ${v.risvegli===n?"attivo-verde":""}" onclick="imposta('risvegli',${n})">${n===5?"5+":n}</button>`).join("")}</div>
       <label class="sotto" style="display:block;margin:6px 0 4px">Perché ti sei svegliato? (facoltativo)</label>
       <input type="text" value="${esc(v.motivoRisvegli)}" placeholder="Es. bagno, rumori, pensieri..." onkeydown="if(event.key==='Enter')this.blur()" onchange="imposta('motivoRisvegli',this.value)" style="width:100%;padding:10px;border:2px solid var(--bordo);border-radius:12px;background:var(--input);color:var(--testo);font-family:inherit">
       <label class="sotto" style="display:block;margin:10px 0 4px">💭 Sogni (facoltativo)</label>
@@ -759,9 +781,12 @@ function vistaOggi(){
       h+=`<button class="chip ${p.q===qk?"attivo-verde":""}" onclick="impostaPasto('${pk}','q','${qk}')">${qn}</button>`;
     }
     h+=`<button class="chip ${p.ecc?"attivo":""}" onclick="impostaPasto('${pk}','ecc',${p.ecc?"false":"true"})">⚠️ Eccezione dieta</button>
-      </div></div>`;
+      </div>
+      <div class="sotto" style="margin:6px 0 2px">Prevalentemente (facoltativo):</div>
+      <div class="chips">${MACRO.map(([mk,mn])=>`<button class="chip ${p.macro===mk?"attivo-verde":""}" onclick="impostaPasto('${pk}','macro','${mk}')">${mn}</button>`).join("")}</div>
+      </div>`;
   }
-  h+=`<div class="sotto">"Eccezione dieta" = hai mangiato qualcosa fuori dalla tua dieta abituale.</div></div>`;
+  h+=`<div class="sotto">"Eccezione dieta" = hai mangiato qualcosa fuori dalla tua dieta abituale. Il tipo prevalente (carboidrati/proteine) è facoltativo e viene usato nelle correlazioni.</div></div>`;
   }
 
   // Sintomi
@@ -1194,7 +1219,7 @@ function eventiTemporali(iso){
     if(dd<sv){ b.push({s:dd,e:sv,txt:"😴 Sonno",col:"#5c6bc0"}); }
     else { b.push({s:0,e:sv,txt:"😴 Sonno",col:"#5c6bc0"}); b.push({s:dd,e:1440,txt:"😴 Sonno",col:"#5c6bc0"}); }
   } else if(sv!=null){ b.push({s:Math.max(0,sv-30),e:sv,txt:"☀️ Sveglia",col:"#5c6bc0"}); }
-  const emojiPasto={colazione:"🍞 Colaz.",pranzo:"🍝 Pranzo",cena:"🍲 Cena",merenda:"🍎 Merenda"};
+  const emojiPasto={colazione:"🍞 Colaz.",merendaMattino:"🍎 Mer. matt.",pranzo:"🍝 Pranzo",merendaPomeriggio:"🍏 Mer. pom.",cena:"🍲 Cena"};
   for(const [pk] of PASTI){ const p=v.pasti&&v.pasti[pk]; if(p&&p.ora){ const m=hhmmToMin(p.ora); if(m!=null) b.push({s:m,e:Math.min(1440,m+30),txt:emojiPasto[pk]||"🍽️",col:"#e8843c"}); } }
   const colAtt={meditazione:"#26a69a",respirazione:"#26a69a",sport:"#2e9e5b",pisolino:"#7e57c2",sauna:"#00897b",vacanza:"#00897b",intimita:"#d81b60"};
   const emoAtt=Object.fromEntries(ATTIVITA.map(([k,n])=>[k,n.split(" ")[0]]));
@@ -1371,8 +1396,8 @@ function mostraRiepilogo(iso){
     corpo+=rieRiga("Consistenza feci", v.feciConsistenza?nomiFecCons[v.feciConsistenza]:"");
     corpo+=rieRiga("Occhi", v.occhi?nomiOc[v.occhi]:"");
     const pasti=PASTI.filter(([pk])=>v.pasti&&v.pasti[pk]&&(v.pasti[pk].q||v.pasti[pk].ora)).map(([pk,pn])=>{
-      const p=v.pasti[pk]; const q=(QUANTITA.find(x=>x[0]===p.q)||[])[1];
-      return pn.replace(/^[^ ]+ /,"")+(q?`: ${q}`:"")+(p.ora?` (${p.ora})`:"")+(p.ecc?" ⚠️":"");
+      const p=v.pasti[pk]; const q=(QUANTITA.find(x=>x[0]===p.q)||[])[1]; const m=(MACRO.find(x=>x[0]===p.macro)||[])[1];
+      return pn.replace(/^[^ ]+ /,"")+(q?`: ${q}`:"")+(m?` · ${m}`:"")+(p.ora?` (${p.ora})`:"")+(p.ecc?" ⚠️":"");
     });
     corpo+=rieRiga("Pasti", pasti.join("<br>"));
     if(v.sintomi&&v.sintomi.length){
@@ -1677,6 +1702,8 @@ const FATTORI=[
   ["eccezione","un'eccezione alla dieta", v=>Object.values(v.pasti||{}).some(p=>p&&p.ecc)],
   ["troppo","aver mangiato troppo", v=>Object.values(v.pasti||{}).some(p=>p&&p.q==="troppo")],
   ["saltato","aver saltato un pasto", v=>["colazione","pranzo","cena"].some(k=>v.pasti&&v.pasti[k]&&v.pasti[k].q==="saltato")],
+  ["pastiCarbo","pasti prevalentemente a carboidrati", v=>Object.values(v.pasti||{}).some(p=>p&&p.macro==="carbo")],
+  ["pastiProteine","pasti prevalentemente a proteine", v=>Object.values(v.pasti||{}).some(p=>p&&p.macro==="proteine")],
   ["freddo","aver preso freddo", v=>(v.sintomi||[]).includes("freddo")],
   ["cattivoSonno","una notte dormita male", v=>v.sonnoQ!=null&&v.sonnoQ<=2],
   ["stressAlto","una giornata molto stressante", v=>v.stress!=null&&v.stress>=4],
@@ -1926,7 +1953,19 @@ function vistaSalute(){
       h+=`</div>`;
     }
   }
-  h+=`<div class="form-riga" style="margin-top:10px">
+  h+=`<div class="import-sangue" style="margin:4px 0 12px;padding:12px;border:1px dashed var(--bordo);border-radius:12px">
+      <div class="sotto" style="margin-top:0;margin-bottom:8px"><b>📥 Importa automaticamente</b> i valori da un referto o da un foglio riepilogativo. Rivedrai sempre i valori prima di salvarli.</div>
+      <div class="chips">
+        <button class="chip" onclick="document.getElementById('imp-excel').click()">📊 Excel/CSV</button>
+        <button class="chip" onclick="document.getElementById('imp-pdf').click()">📄 PDF referto</button>
+        <button class="chip" onclick="document.getElementById('imp-foto').click()">📷 Foto/scansione</button>
+      </div>
+      <input type="file" id="imp-excel" accept=".xlsx,.xls,.csv,.tsv" style="display:none" onchange="importaSangue(this,'excel')">
+      <input type="file" id="imp-pdf" accept="application/pdf,.pdf" style="display:none" onchange="importaSangue(this,'pdf')">
+      <input type="file" id="imp-foto" accept="image/*,application/pdf,.pdf" capture="environment" style="display:none" onchange="importaSangue(this,'foto')">
+      <div id="imp-stato" class="sotto" style="margin:8px 0 0;display:none"></div>
+    </div>
+    <div class="form-riga" style="margin-top:10px">
       <input type="date" id="sg-data" value="${dataInModifica<=oggi()?dataInModifica:oggi()}">
       <input type="text" id="sg-nome" placeholder="Esame (es. Glicemia)" onkeydown="if(event.key==='Enter')aggiungiSangue()"></div>
     <div class="form-riga">
@@ -1966,7 +2005,7 @@ function vistaSalute(){
     <div class="sotto">💡 Controlla anche la sezione Analisi: le correlazioni trovate sono ottimi indizi per le tue ipotesi.</div></div>`;
   return h;
 }
-function valore(id){ const e=document.getElementById(id); return e?e.value.trim():""; }
+function valore(id){ const e=document.getElementById(id); return e?norm(e.value.trim()):""; }
 function aggiungiFarmaco(){
   const nome=valore("fm-nome"); if(!nome){ alert("Scrivi il nome del farmaco."); return; }
   const dose=valore("fm-dose"); const dal=valore("fm-dal")||oggi();
@@ -2055,6 +2094,197 @@ function aggiungiSangue(){
   mostraToast("Valore aggiunto ✓");
   salva(); render();
 }
+/* ===== IMPORT ESAMI DEL SANGUE (Excel/CSV, PDF, foto/OCR) ===== */
+let impRighe=[];
+function impStato(txt, mostra){ const el=document.getElementById("imp-stato"); if(!el) return;
+  el.style.display=mostra===false?"none":"block"; el.innerHTML=txt; }
+function caricaLib(url){ return new Promise((res,rej)=>{
+  const s=document.createElement("script"); s.src=url; s.onload=res; s.onerror=()=>rej(new Error("Impossibile caricare "+url)); document.head.appendChild(s); }); }
+function numIt(s){ if(s==null) return NaN; s=String(s).replace(/\s/g,"").replace(/\.(?=\d{3}\b)/g,"").replace(",","."); const n=parseFloat(s); return n; }
+/* Da una riga di testo estrae {nome, valore, unita, rifBasso, rifAlto} oppure null */
+function estraiRigaTesto(riga){
+  const line=norm(riga).replace(/\s+/g," ").trim();
+  if(line.length<3) return null;
+  // primo numero "valore" (anche con < >)
+  const mNum=line.match(/([<>]?\s*-?\d{1,4}(?:[.,]\d+)?)/);
+  if(!mNum) return null;
+  const idx=mNum.index;
+  let nome=line.slice(0,idx).replace(/[.:;·\-–\s]+$/,"").trim();
+  if(!/[A-Za-zÀ-ÿ]{3}/.test(nome)) return null; // nome deve avere lettere
+  if(/^(data|referto|paziente|reparto|pag|pagina|codice|nato|prelievo|refertazione|analisi di)/i.test(nome)) return null;
+  const valore=numIt(mNum[1].replace(/[<>]/g,""));
+  if(isNaN(valore)) return null;
+  const resto=line.slice(idx+mNum[1].length).trim();
+  // unità: primo token unit-like
+  let unita=""; const mU=resto.match(/^([A-Za-zµμ%][A-Za-zµμ%\/·^0-9\.]*)/); if(mU) unita=mU[1].replace(/\.$/,"");
+  // range riferimento: "70 - 110" oppure "< 200" / "> 40"
+  let rifBasso=null, rifAlto=null;
+  const mR=resto.match(/(-?\d+(?:[.,]\d+)?)\s*[-–aA]\s*(-?\d+(?:[.,]\d+)?)/);
+  if(mR){ rifBasso=numIt(mR[1]); rifAlto=numIt(mR[2]); }
+  else { const mLt=resto.match(/[<≤]\s*(-?\d+(?:[.,]\d+)?)/); if(mLt) rifAlto=numIt(mLt[1]);
+         const mGt=resto.match(/[>≥]\s*(-?\d+(?:[.,]\d+)?)/); if(mGt) rifBasso=numIt(mGt[1]); }
+  if(isNaN(rifBasso)) rifBasso=null; if(isNaN(rifAlto)) rifAlto=null;
+  return { nome, valore, unita, rifBasso, rifAlto };
+}
+function estraiDaTesto(txt){
+  const out=[];
+  for(const riga of String(txt).split(/\r?\n/)){ const c=estraiRigaTesto(riga); if(c) out.push(c); }
+  return out;
+}
+/* Da righe tabellari (array di array) di un Excel/CSV */
+function estraiDaRighe(rows){
+  rows=rows.filter(r=>r&&r.some(c=>c!=null&&String(c).trim()!==""));
+  if(!rows.length) return [];
+  const norma=s=>norm(String(s==null?"":s)).toLowerCase().trim();
+  let hi=-1, col={};
+  for(let i=0;i<Math.min(rows.length,8);i++){
+    const cells=rows[i].map(norma);
+    const find=(re)=>cells.findIndex(c=>re.test(c));
+    const cN=find(/esame|analisi|nome|test|parametro|descrizione/), cV=find(/valore|risultato|esito|result/);
+    if(cN>=0 && cV>=0){ hi=i; col.nome=cN; col.val=cV;
+      col.unita=find(/unit|u\.m|um\b|misura/); col.data=find(/data|date/);
+      col.rif=find(/rif|range|interval|norma/); col.min=find(/min/); col.max=find(/max/);
+      break; }
+  }
+  const cand=[];
+  if(hi>=0){
+    for(let i=hi+1;i<rows.length;i++){
+      const r=rows[i]; const nome=norm(String(r[col.nome]==null?"":r[col.nome])).trim();
+      const valore=numIt(r[col.val]);
+      if(!nome||isNaN(valore)) continue;
+      let rifBasso=null, rifAlto=null;
+      if(col.min>=0){ const m=numIt(r[col.min]); if(!isNaN(m)) rifBasso=m; }
+      if(col.max>=0){ const m=numIt(r[col.max]); if(!isNaN(m)) rifAlto=m; }
+      if((rifBasso==null&&rifAlto==null)&&col.rif>=0&&r[col.rif]!=null){
+        const s=String(r[col.rif]); const mR=s.match(/(-?\d+(?:[.,]\d+)?)\s*[-–aA]\s*(-?\d+(?:[.,]\d+)?)/);
+        if(mR){ rifBasso=numIt(mR[1]); rifAlto=numIt(mR[2]); }
+        else { const lt=s.match(/[<≤]\s*(-?\d+(?:[.,]\d+)?)/); if(lt) rifAlto=numIt(lt[1]);
+               const gt=s.match(/[>≥]\s*(-?\d+(?:[.,]\d+)?)/); if(gt) rifBasso=numIt(gt[1]); }
+      }
+      let data=null; if(col.data>=0&&r[col.data]!=null){ data=parseDataFlessibile(r[col.data]); }
+      cand.push({nome, valore, unita:col.unita>=0?norm(String(r[col.unita]==null?"":r[col.unita])).trim():"",
+        rifBasso:(rifBasso==null||isNaN(rifBasso))?null:rifBasso, rifAlto:(rifAlto==null||isNaN(rifAlto))?null:rifAlto, data});
+    }
+  } else {
+    // Nessuna intestazione riconosciuta: assume colonne Nome | Valore | Unità
+    for(const r of rows){ const nome=norm(String(r[0]==null?"":r[0])).trim(); const valore=numIt(r[1]);
+      if(!nome||isNaN(valore)) continue;
+      cand.push({nome, valore, unita:r[2]!=null?norm(String(r[2])).trim():"", rifBasso:null, rifAlto:null, data:null}); }
+  }
+  return cand;
+}
+function parseDataFlessibile(v){
+  if(v==null) return null;
+  if(v instanceof Date && !isNaN(v)) return v.toISOString().slice(0,10);
+  const s=String(v).trim();
+  let m=s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/); if(m) return `${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}`;
+  m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/);
+  if(m){ let y=m[3]; if(y.length===2) y="20"+y; return `${y}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`; }
+  return null;
+}
+async function importaSangue(input, tipo){
+  const file=input.files&&input.files[0]; input.value=""; if(!file) return;
+  try{
+    let cand=[];
+    if(tipo==="excel"){
+      impStato("📊 Leggo il foglio…");
+      if(!window.XLSX) await caricaLib("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js");
+      const buf=await file.arrayBuffer();
+      const wb=XLSX.read(new Uint8Array(buf),{type:"array",cellDates:true});
+      for(const sh of wb.SheetNames){
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets[sh],{header:1,raw:true,defval:null});
+        cand=cand.concat(estraiDaRighe(rows));
+      }
+    } else if(tipo==="pdf" || (tipo==="foto" && /pdf$/i.test(file.name))){
+      impStato("📄 Estraggo il testo dal PDF…");
+      if(!window.pdfjsLib) await caricaLib("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js");
+      pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+      const buf=await file.arrayBuffer();
+      const pdf=await pdfjsLib.getDocument({data:new Uint8Array(buf)}).promise;
+      let testo="";
+      for(let p=1;p<=pdf.numPages;p++){
+        const page=await pdf.getPage(p); const tc=await page.getTextContent();
+        // raggruppa per riga in base alla coordinata verticale
+        const righe={}; for(const it of tc.items){ const y=Math.round(it.transform[5]); (righe[y]=righe[y]||[]).push(it.str); }
+        for(const y of Object.keys(righe).sort((a,b)=>b-a)) testo+=righe[y].join(" ")+"\n";
+      }
+      cand=estraiDaTesto(testo);
+      if(cand.length===0){ impStato("📄 Nessun testo selezionabile: provo con il riconoscimento immagine (OCR)…"); cand=await ocrPdf(file); }
+    } else { // foto immagine
+      impStato("📷 Riconoscimento testo dall'immagine (OCR), può richiedere qualche secondo…");
+      if(!window.Tesseract) await caricaLib("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js");
+      const {data}=await Tesseract.recognize(file,"ita+eng");
+      cand=estraiDaTesto(data.text);
+    }
+    impStato("",false);
+    if(!cand.length){ alert("Non sono riuscito a riconoscere valori nel file. Puoi inserirli a mano qui sotto, oppure prova con un foglio Excel/CSV con colonne Esame, Valore, Unità."); return; }
+    // deduplica per nome+valore
+    const visti=new Set(); impRighe=[];
+    for(const c of cand){ const k=c.nome.toLowerCase()+"|"+c.valore; if(visti.has(k)) continue; visti.add(k); impRighe.push(c); }
+    mostraRevisioneImport();
+  }catch(e){ impStato("",false); alert("Errore durante l'import: "+(e&&e.message?e.message:e)+"\nSe sei offline, l'import richiede una connessione per caricare gli strumenti di lettura."); }
+}
+async function ocrPdf(file){
+  if(!window.pdfjsLib) await caricaLib("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js");
+  pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+  if(!window.Tesseract) await caricaLib("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js");
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:new Uint8Array(buf)}).promise;
+  let cand=[];
+  for(let p=1;p<=Math.min(pdf.numPages,6);p++){
+    const page=await pdf.getPage(p); const vp=page.getViewport({scale:2});
+    const cv=document.createElement("canvas"); cv.width=vp.width; cv.height=vp.height;
+    await page.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise;
+    const {data}=await Tesseract.recognize(cv,"ita+eng");
+    cand=cand.concat(estraiDaTesto(data.text));
+  }
+  return cand;
+}
+function mostraRevisioneImport(){
+  const dataDef=dataInModifica<=oggi()?dataInModifica:oggi();
+  let righe="";
+  impRighe.forEach((c,i)=>{
+    righe+=`<div class="imp-riga" style="border:1px solid var(--bordo);border-radius:12px;padding:8px;margin-bottom:8px">
+      <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <input type="checkbox" class="imp-ck" data-i="${i}" checked>
+        <input type="text" value="${esc(c.nome)}" oninput="impRighe[${i}].nome=norm(this.value)" style="flex:1;padding:6px;border:2px solid var(--bordo);border-radius:10px;background:var(--input);color:var(--testo);font-family:inherit"></label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <input type="text" value="${esc(String(c.valore))}" oninput="impRighe[${i}].valore=numIt(this.value)" placeholder="Valore" style="width:90px;padding:6px;border:2px solid var(--bordo);border-radius:10px;background:var(--input);color:var(--testo)">
+        <input type="text" value="${esc(c.unita||'')}" oninput="impRighe[${i}].unita=norm(this.value)" placeholder="Unità" style="width:90px;padding:6px;border:2px solid var(--bordo);border-radius:10px;background:var(--input);color:var(--testo)">
+        <input type="text" value="${c.rifBasso!=null?esc(String(c.rifBasso)):''}" oninput="impRighe[${i}].rifBasso=this.value===''?null:numIt(this.value)" placeholder="Rif.min" style="width:76px;padding:6px;border:2px solid var(--bordo);border-radius:10px;background:var(--input);color:var(--testo)">
+        <input type="text" value="${c.rifAlto!=null?esc(String(c.rifAlto)):''}" oninput="impRighe[${i}].rifAlto=this.value===''?null:numIt(this.value)" placeholder="Rif.max" style="width:76px;padding:6px;border:2px solid var(--bordo);border-radius:10px;background:var(--input);color:var(--testo)">
+      </div></div>`;
+  });
+  const html=`<div class="modale-overlay" onclick="if(event.target===this)chiudiModale()">
+    <div class="modale"><div class="maniglia"></div>
+      <h2>📥 Rivedi i valori da importare</h2>
+      <div class="sotto" style="margin-top:0;margin-bottom:6px">Ho trovato <b>${impRighe.length}</b> valori. Correggi ciò che serve e togli la spunta a quelli da scartare.</div>
+      <div class="form-riga" style="margin-bottom:10px"><label class="sotto" style="align-self:center">Data del prelievo:</label>
+        <input type="date" id="imp-data" value="${dataDef}"></div>
+      ${righe}
+      <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+        <button class="btn btn-verde" onclick="confermaImport()">✓ Importa selezionati</button>
+        <button class="btn" onclick="chiudiModale()">Annulla</button>
+      </div>
+    </div></div>`;
+  document.getElementById("modale").innerHTML=html;
+  document.body.classList.add("modale-aperta");
+}
+function confermaImport(){
+  const data=(document.getElementById("imp-data")||{}).value||oggi();
+  const sp=saluteProfilo(); let n=0;
+  document.querySelectorAll(".imp-ck").forEach(ck=>{
+    if(!ck.checked) return; const c=impRighe[+ck.dataset.i];
+    if(!c||!c.nome||isNaN(c.valore)) return;
+    sp.sangue.push({id:"s"+Date.now()+"_"+n, data:c.data||data, nome:norm(c.nome), valore:c.valore,
+      unita:c.unita?norm(c.unita):"", rifBasso:(c.rifBasso==null||isNaN(c.rifBasso))?null:c.rifBasso,
+      rifAlto:(c.rifAlto==null||isNaN(c.rifAlto))?null:c.rifAlto, agg:Date.now()});
+    n++;
+  });
+  chiudiModale();
+  if(n){ salva(); render(); mostraToast(n+" valori importati ✓"); }
+  else alert("Nessun valore selezionato.");
+}
 function aggiungiIpotesi(){
   const testo=valore("ip-testo"); if(!testo){ alert("Scrivi l'ipotesi."); return; }
   saluteProfilo().ipotesi.push({id:"i"+Date.now(), testo, creata:oggi(), stato:"aperta", pro:0, contro:0, agg:Date.now()});
@@ -2080,7 +2310,7 @@ function votaIpotesi(id, delta){
   assicuraIndizi(i);
   const nota=prompt(delta>0?"Quale indizio a FAVORE? (facoltativo)":"Quale indizio CONTRO? (facoltativo)","");
   if(nota===null) return;
-  const el={testo:String(nota).trim(), data:oggi()};
+  const el={testo:norm(String(nota).trim()), data:oggi()};
   if(delta>0){ i.indiziPro.push(el); i.pro=i.indiziPro.length; }
   else { i.indiziContro.push(el); i.contro=i.indiziContro.length; }
   i.agg=Date.now(); salva(); render();
@@ -2378,7 +2608,7 @@ function generaResoconto(){
     const igi=[]; if(v.denti!=null) igi.push("denti "+v.denti+"×"); if(v.filo!=null) igi.push("filo "+v.filo+"×"); if(v.colluttorio) igi.push("colluttorio");
     if(igi.length) parti.push("Igiene: "+igi.join(", "));
     const pasti=PASTI.filter(([pk])=>v.pasti&&v.pasti[pk]&&(v.pasti[pk].q||v.pasti[pk].ora)).map(([pk,pn])=>{
-      const p=v.pasti[pk]; return pn.replace(/^[^ ]+ /,"")+(p.q?": "+nomiQ[p.q]:"")+(p.ora?" ("+p.ora+")":"")+(p.ecc?" ⚠️":"");
+      const p=v.pasti[pk]; const m=(MACRO.find(x=>x[0]===p.macro)||[])[1]; return pn.replace(/^[^ ]+ /,"")+(p.q?": "+nomiQ[p.q]:"")+(m?" · "+m:"")+(p.ora?" ("+p.ora+")":"")+(p.ecc?" ⚠️":"");
     });
     if(pasti.length) parti.push("Pasti: "+pasti.join("; "));
     if(v.sintomi&&v.sintomi.length){
@@ -2675,6 +2905,7 @@ async function sincronizza(manuale){
     if(error) throw error;
     if(data&&data.contenuto){
       S=unisci(data.contenuto, S);
+      migraMerenda();
       localStorage.setItem(chiaveDati, JSON.stringify(S));
       const n=contaVoci(S);
       if(manuale) mostraToast("Dati aggiornati dal cloud ✓");

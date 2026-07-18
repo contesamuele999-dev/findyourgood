@@ -1,5 +1,5 @@
 /* Service worker di Find Your Good: rende l'app installabile e utilizzabile offline. */
-const CACHE = "fyg-cache-v5";
+const CACHE = "fyg-cache-v6";
 const ASSETS = [
   "./",
   "index.html",
