@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2e7d6b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -182,6 +182,11 @@ input[type=time],input[type=date]{border:2px solid var(--bordo); border-radius:1
 .voce-attivita input[type=number]{width:78px; padding:8px; font-size:1rem; border:2px solid var(--bordo); border-radius:10px; background:var(--card); color:var(--testo); text-align:center; font-family:inherit;}
 /* Blocco scorrimento sfondo quando un popup è aperto (evita che scrolli la pagina dietro) */
 body.modale-aperta{overflow:hidden;}
+.sc-lista{display:flex; flex-direction:column; gap:6px; max-height:44vh; overflow:auto; -webkit-overflow-scrolling:touch;}
+.sc-voce{text-align:left; padding:11px 12px; border:2px solid var(--bordo); border-radius:12px; background:var(--input); color:var(--testo); font-family:inherit; font-size:.95rem; cursor:pointer; transition:.15s;}
+.sc-voce:hover{border-color:var(--verde);}
+.sc-voce.sc-sel{border-color:var(--verde); background:var(--verde); color:#fff;}
+.sc-voce.sc-sel .sotto{color:rgba(255,255,255,.85);}
 /* Resoconto: campi data che non sforino su mobile */
 .periodo-date{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;}
 .periodo-date label{flex:1 1 130px; min-width:120px; font-size:.9rem; color:var(--grigio);}
@@ -2276,11 +2281,19 @@ function convertiUnita(valore, unitaFrom, cat, built){
 }
 /* Assegna (o crea) una categoria per un esame, imparando l'alias e convertendo l'unità.
    Ritorna {catId, valore, unita, valoreOrig, unitaOrig}. */
-function assegnaCategoria(sp, nome, unita, valore){
+function assegnaCategoria(sp, nome, unita, valore, forcedCatId){
   if(!sp.categorie) sp.categorie=[];
   const built=riconosciAnalita(nome);
   const nN=normNome(nome);
   let cat=null;
+  if(forcedCatId){ cat=categoriaById(sp, forcedCatId)||null; }
+  if(cat){
+    if(nN && normNome(cat.nome)!==nN && !(cat.alias||[]).some(a=>normNome(a)===nN)){ (cat.alias=cat.alias||[]).push(norm(nome)); }
+    const convF=convertiUnita(valore, unita, cat, built);
+    const convertitoF = convF.unita!==(unita||cat.unita) || convF.valore!==valore;
+    return { catId:cat.id, valore:convF.valore, unita:convF.unita,
+             valoreOrig: convertitoF?valore:null, unitaOrig: convertitoF?(unita||""):null };
+  }
   for(const c of sp.categorie){
     if((c.alias||[]).some(a=>normNome(a)===nN)) { cat=c; break; }
     if(normNome(c.nome)===nN){ cat=c; break; }
@@ -2395,10 +2408,69 @@ function estraiDaTesto(txt){
   for(const riga of String(txt).split(/\r?\n/)){ const c=estraiRigaTesto(riga); if(c) out.push(c); }
   return out;
 }
+/* Estrae {rifBasso,rifAlto} da una stringa tipo "70 - 110", "< 200", "> 40" */
+function parseRangeTesto(s){
+  let rifBasso=null, rifAlto=null;
+  if(s==null) return {rifBasso,rifAlto};
+  s=String(s);
+  const mR=s.match(/(-?\d+(?:[.,]\d+)?)\s*[-–—aA]\s*(-?\d+(?:[.,]\d+)?)/);
+  if(mR){ rifBasso=numIt(mR[1]); rifAlto=numIt(mR[2]); }
+  else { const lt=s.match(/[<≤]\s*(-?\d+(?:[.,]\d+)?)/); if(lt) rifAlto=numIt(lt[1]);
+         const gt=s.match(/[>≥]\s*(-?\d+(?:[.,]\d+)?)/); if(gt) rifBasso=numIt(gt[1]); }
+  if(isNaN(rifBasso)) rifBasso=null; if(isNaN(rifAlto)) rifAlto=null;
+  return {rifBasso,rifAlto};
+}
+/* Formato "riepilogo": esami nelle righe, date nelle colonne (+ eventuali colonne Range/Unità).
+   Ritorna un array di candidati (uno per ogni cella data valorizzata) oppure null se non riconosciuto. */
+function estraiDaRigheMatrice(rows){
+  const norma=s=>norm(String(s==null?"":s)).toLowerCase().trim();
+  // Trova la riga-intestazione: quella con più celle-data (almeno 2)
+  let hd=-1, dateCol={}, nDate=0;
+  for(let i=0;i<Math.min(rows.length,10);i++){
+    const dc={}; let n=0;
+    rows[i].forEach((cell,j)=>{ const d=parseDataFlessibile(cell); if(d){ dc[j]=d; n++; } });
+    if(n>nDate){ nDate=n; hd=i; dateCol=dc; }
+  }
+  if(hd<0 || nDate<2) return null; // non è un formato a matrice
+  // Individua colonne Range e Unità (nella riga intestazione o in quella sopra/sotto)
+  let colRange=-1, colUnita=-1;
+  for(const i of [hd, hd-1, hd+1]){
+    if(i<0||i>=rows.length) continue;
+    rows[i].forEach((cell,j)=>{
+      if(dateCol[j]) return;                 // salta le colonne-data
+      const c=norma(cell); if(!c || c.length>24) return;
+      if(colRange<0 && /(range|rif|interval|norma)/.test(c)) colRange=j;
+      if(colUnita<0 && /(unit[àa]?|u\.?m\.?|misura)/.test(c)) colUnita=j;
+    });
+  }
+  const dateCols=Object.keys(dateCol).map(Number);
+  const minDateCol=Math.min(...dateCols);
+  const out=[];
+  for(let i=hd+1;i<rows.length;i++){
+    const r=rows[i]; if(!r) continue;
+    // Il nome è la prima cella testuale non numerica prima delle colonne data
+    let nome="";
+    for(let j=0;j<minDateCol;j++){
+      const v=norm(String(r[j]==null?"":r[j])).trim();
+      if(v && !/^[<>≤≥]?\s*-?\d/.test(v)){ nome=v; break; }
+    }
+    if(!nome || !/[A-Za-zÀ-ÿ]{2}/.test(nome)) continue;
+    const unita=colUnita>=0 ? norm(String(r[colUnita]==null?"":r[colUnita])).trim() : "";
+    const rng=colRange>=0 ? parseRangeTesto(r[colRange]) : {rifBasso:null,rifAlto:null};
+    for(const j of dateCols){
+      const valore=numIt(r[j]);
+      if(isNaN(valore)) continue;
+      out.push({nome, valore, unita, rifBasso:rng.rifBasso, rifAlto:rng.rifAlto, data:dateCol[j]});
+    }
+  }
+  return out.length ? out : null;
+}
 /* Da righe tabellari (array di array) di un Excel/CSV */
 function estraiDaRighe(rows){
   rows=rows.filter(r=>r&&r.some(c=>c!=null&&String(c).trim()!==""));
   if(!rows.length) return [];
+  const matrice=estraiDaRigheMatrice(rows);
+  if(matrice) return matrice;
   const norma=s=>norm(String(s==null?"":s)).toLowerCase().trim();
   let hi=-1, col={};
   for(let i=0;i<Math.min(rows.length,8);i++){
@@ -2507,6 +2579,7 @@ async function ocrPdf(file){
 function mostraRevisioneImport(){
   const dataDef=dataInModifica<=oggi()?dataInModifica:oggi();
   let righe="";
+  const conDate=impRighe.some(c=>c.data);
   impRighe.forEach((c,i)=>{
     righe+=`<div class="imp-riga" style="border:1px solid var(--bordo);border-radius:12px;padding:8px;margin-bottom:8px">
       <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -2517,8 +2590,12 @@ function mostraRevisioneImport(){
         <input type="text" value="${esc(c.unita||'')}" oninput="impRighe[${i}].unita=norm(this.value)" placeholder="Unità" style="width:90px;padding:6px;border:2px solid var(--bordo);border-radius:10px;background:var(--input);color:var(--testo)">
         <input type="text" value="${c.rifBasso!=null?esc(String(c.rifBasso)):''}" oninput="impRighe[${i}].rifBasso=this.value===''?null:numIt(this.value)" placeholder="Rif.min" style="width:76px;padding:6px;border:2px solid var(--bordo);border-radius:10px;background:var(--input);color:var(--testo)">
         <input type="text" value="${c.rifAlto!=null?esc(String(c.rifAlto)):''}" oninput="impRighe[${i}].rifAlto=this.value===''?null:numIt(this.value)" placeholder="Rif.max" style="width:76px;padding:6px;border:2px solid var(--bordo);border-radius:10px;background:var(--input);color:var(--testo)">
+        ${conDate?`<input type="date" value="${esc(c.data||dataDef)}" oninput="impRighe[${i}].data=this.value||null" title="Data del prelievo" style="padding:6px;border:2px solid var(--bordo);border-radius:10px;background:var(--input);color:var(--testo)">`:""}
       </div>
-      <div class="sotto" style="margin-top:4px">→ Categoria: <b>${esc(anteprimaCategoria(c.nome))}</b></div></div>`;
+      <div class="sotto" style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span>Categoria:</span>
+        <button type="button" id="imp-cat-${i}" class="chip" style="border-style:solid" onclick="apriSelettoreCategoria(${i})">${esc(nomeCategoriaRiga(i))} ▾</button>
+      </div></div>`;
   });
   const html=`<div class="modale-overlay" onclick="if(event.target===this)chiudiModale()">
     <div class="modale"><div class="maniglia"></div>
@@ -2535,13 +2612,57 @@ function mostraRevisioneImport(){
   document.getElementById("modale").innerHTML=html;
   document.body.classList.add("modale-aperta");
 }
+/* Nome della categoria mostrata sul pulsante di una riga d'import */
+function nomeCategoriaRiga(i){
+  const c=impRighe[i]; if(!c) return "";
+  if(c.catId){ const cat=categoriaById(saluteProfilo(), c.catId); if(cat) return cat.nome; }
+  return anteprimaCategoria(c.nome);
+}
+/* Popup elegante per scegliere/riassegnare la categoria di una riga d'import */
+function apriSelettoreCategoria(i){
+  const sp=saluteProfilo();
+  const c=impRighe[i]; if(!c) return;
+  const attualeNome=nomeCategoriaRiga(i);
+  const cats=[...(sp.categorie||[])].sort((a,b)=>a.nome.localeCompare(b.nome,"it"));
+  let voci=`<button type="button" class="sc-voce${!c.catId?' sc-sel':''}" onclick="scegliCategoria(${i},null)">
+      ✨ Automatica <span class="sotto" style="display:inline;margin-left:4px">(${esc(anteprimaCategoria(c.nome))})</span></button>`;
+  for(const cat of cats){
+    voci+=`<button type="button" class="sc-voce${c.catId===cat.id?' sc-sel':''}" onclick="scegliCategoria(${i},'${cat.id}')">
+      ${esc(cat.nome)}${cat.unita?` <span class="sotto" style="display:inline;margin-left:4px">${esc(cat.unita)}</span>`:''}</button>`;
+  }
+  const html=`<div class="modale-overlay" style="z-index:80" onclick="if(event.target===this)chiudiSelettoreCategoria()">
+    <div class="modale" style="max-height:70vh"><div class="maniglia"></div>
+      <h2>🏷️ Scegli la categoria</h2>
+      <div class="sotto" style="margin-top:0;margin-bottom:8px">Per «<b>${esc(c.nome)}</b>». La categoria raggruppa gli esami equivalenti nel grafico dell'andamento.</div>
+      <div class="sc-lista">${voci}</div>
+      <div class="form-riga" style="margin-top:12px">
+        <input type="text" id="sc-nuova" placeholder="…oppure crea una nuova categoria" onkeydown="if(event.key==='Enter')creaCategoriaRiga(${i})">
+        <button class="btn btn-verde" onclick="creaCategoriaRiga(${i})">Crea</button></div>
+      <button class="btn" style="margin-top:10px" onclick="chiudiSelettoreCategoria()">Chiudi</button>
+    </div></div>`;
+  const host=document.createElement("div"); host.id="sel-cat-host"; host.innerHTML=html;
+  document.body.appendChild(host);
+}
+function chiudiSelettoreCategoria(){ const h=document.getElementById("sel-cat-host"); if(h) h.remove(); }
+function scegliCategoria(i, catId){
+  if(impRighe[i]) impRighe[i].catId=catId;
+  chiudiSelettoreCategoria();
+  const b=document.getElementById("imp-cat-"+i); if(b) b.innerHTML=esc(nomeCategoriaRiga(i))+" ▾";
+}
+function creaCategoriaRiga(i){
+  const nome=norm((valore("sc-nuova")||"").trim()); if(!nome){ alert("Scrivi il nome della categoria."); return; }
+  const sp=saluteProfilo(); if(!sp.categorie) sp.categorie=[];
+  const cat={ id:"cat"+Date.now()+Math.floor(Math.random()*9999), nome, unita:norm(impRighe[i]?impRighe[i].unita||"":""), builtNome:null, alias:[] };
+  sp.categorie.push(cat);
+  scegliCategoria(i, cat.id);
+}
 function confermaImport(){
   const data=(document.getElementById("imp-data")||{}).value||oggi();
   const sp=saluteProfilo(); let n=0;
   document.querySelectorAll(".imp-ck").forEach(ck=>{
     if(!ck.checked) return; const c=impRighe[+ck.dataset.i];
     if(!c||!c.nome||isNaN(c.valore)) return;
-    const cat=assegnaCategoria(sp, norm(c.nome), c.unita?norm(c.unita):"", c.valore);
+    const cat=assegnaCategoria(sp, norm(c.nome), c.unita?norm(c.unita):"", c.valore, c.catId||null);
     sp.sangue.push({id:"s"+Date.now()+"_"+n, data:c.data||data, nome:norm(c.nome), catId:cat.catId, valore:cat.valore,
       unita:cat.unita, valoreOrig:cat.valoreOrig, unitaOrig:cat.unitaOrig,
       rifBasso:(c.rifBasso==null||isNaN(c.rifBasso))?null:c.rifBasso,
