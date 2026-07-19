@@ -1779,15 +1779,64 @@ function pearson(xs, ys){
   if(sxx===0||syy===0) return null;
   return sxy/Math.sqrt(sxx*syy);
 }
+/* Grafico SVG dell'andamento nel tempo di un singolo esame (nessuna libreria, funziona offline) */
+function graficoSangue(arr){
+  const fmt=n=>{ const r=Math.round(n*100)/100; return String(r); };
+  const dShort=d=>d.slice(8,10)+"/"+d.slice(5,7);
+  const W=320,H=118,padL=38,padR=12,padT=12,padB=22, iw=W-padL-padR, ih=H-padT-padB;
+  const vals=arr.map(e=>e.valore);
+  let rb=null, ra=null;
+  for(const e of arr){ if(rb==null&&e.rifBasso!=null) rb=e.rifBasso; if(ra==null&&e.rifAlto!=null) ra=e.rifAlto; }
+  let lo=Math.min(...vals), hi=Math.max(...vals);
+  if(rb!=null){ lo=Math.min(lo,rb); hi=Math.max(hi,rb); }
+  if(ra!=null){ lo=Math.min(lo,ra); hi=Math.max(hi,ra); }
+  if(lo===hi){ lo-=1; hi+=1; }
+  const mrg=(hi-lo)*0.12; lo-=mrg; hi+=mrg;
+  const t0=new Date(arr[0].data).getTime(), t1=new Date(arr[arr.length-1].data).getTime(), spanT=t1-t0;
+  const X=e=> padL + (spanT? (new Date(e.data).getTime()-t0)/spanT : 0.5)*iw;
+  const Y=v=> padT + (1-(v-lo)/(hi-lo))*ih;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;margin:4px 0" preserveAspectRatio="xMidYMid meet">`;
+  // banda di riferimento
+  if(rb!=null||ra!=null){
+    const yTop=Y(ra!=null?ra:hi), yBot=Y(rb!=null?rb:lo);
+    svg+=`<rect x="${padL}" y="${yTop.toFixed(1)}" width="${iw}" height="${Math.max(0,yBot-yTop).toFixed(1)}" fill="var(--verde)" opacity="0.13"/>`;
+    if(ra!=null) svg+=`<line x1="${padL}" y1="${Y(ra).toFixed(1)}" x2="${padL+iw}" y2="${Y(ra).toFixed(1)}" stroke="var(--verde)" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>`;
+    if(rb!=null) svg+=`<line x1="${padL}" y1="${Y(rb).toFixed(1)}" x2="${padL+iw}" y2="${Y(rb).toFixed(1)}" stroke="var(--verde)" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>`;
+  }
+  // etichette asse Y (min/max) e X (prima/ultima data)
+  svg+=`<text x="${padL-4}" y="${(padT+4).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--grigio)">${fmt(hi)}</text>`;
+  svg+=`<text x="${padL-4}" y="${(padT+ih).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--grigio)">${fmt(lo)}</text>`;
+  svg+=`<text x="${padL}" y="${H-6}" text-anchor="start" font-size="9" fill="var(--grigio)">${dShort(arr[0].data)}</text>`;
+  if(arr.length>1) svg+=`<text x="${padL+iw}" y="${H-6}" text-anchor="end" font-size="9" fill="var(--grigio)">${dShort(arr[arr.length-1].data)}</text>`;
+  // linea
+  if(arr.length>1){
+    const pts=arr.map(e=>`${X(e).toFixed(1)},${Y(e.valore).toFixed(1)}`).join(" ");
+    svg+=`<polyline points="${pts}" fill="none" stroke="var(--blu)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }
+  // punti (rossi se fuori dai riferimenti)
+  for(const e of arr){
+    const fuori=(e.rifBasso!=null&&e.valore<e.rifBasso)||(e.rifAlto!=null&&e.valore>e.rifAlto);
+    svg+=`<circle cx="${X(e).toFixed(1)}" cy="${Y(e.valore).toFixed(1)}" r="3.2" fill="${fuori?'var(--rosso)':'var(--blu)'}" stroke="var(--card)" stroke-width="1"><title>${esc(dShort(e.data))}: ${esc(fmt(e.valore))}</title></circle>`;
+  }
+  svg+=`</svg>`;
+  return svg;
+}
 function cartaSangue(){
   const sp=saluteProfilo();
   if(!sp.sangue||sp.sangue.length===0) return "";
   const perCat={};
   for(const e of sp.sangue){ const k=e.catId||("nome:"+e.nome); (perCat[k]=perCat[k]||[]).push(e); }
-  let h=`<div class="card"><h2>🩸 Esami del sangue</h2>`;
   const chiaviCat=Object.keys(perCat).sort((a,b)=>{
     const na=(categoriaById(sp,a)||{}).nome||perCat[a][0].nome, nb=(categoriaById(sp,b)||{}).nome||perCat[b][0].nome;
     return norm(na).localeCompare(norm(nb)); });
+  // conteggio esami fuori dai riferimenti (ultimo valore)
+  let nFuori=0;
+  for(const kCat of chiaviCat){ const arr=perCat[kCat]; const u=arr.slice().sort((a,b)=>a.data<b.data?-1:1)[arr.length-1];
+    if((u.rifBasso!=null&&u.valore<u.rifBasso)||(u.rifAlto!=null&&u.valore>u.rifAlto)) nFuori++; }
+  let h=`<div class="card"><h2>🩸 Esami del sangue</h2>`;
+  h+=`<div class="sotto" style="margin-top:0">${chiaviCat.length} esami monitorati${nFuori?` · <b class="trend-su">${nFuori} fuori dai riferimenti</b>`:" · <span class='trend-stab'>tutti nei riferimenti</span>"}.</div>`;
+  h+=`<button class="dettagli-btn" onclick="togglaSezione('sangue-singoli')">📊 Mostra i singoli esami e i grafici (${chiaviCat.length}) ▾</button>`;
+  h+=`<div id="sangue-singoli" class="${sezClass('sangue-singoli')}">`;
   for(const kCat of chiaviCat){
     const nome=(categoriaById(sp,kCat)||{}).nome||perCat[kCat][0].nome;
     const arr=perCat[kCat].slice().sort((a,b)=>a.data<b.data?-1:1);
@@ -1799,9 +1848,15 @@ function cartaSangue(){
       else if(d<-soglia){ trend="in calo"; cls="trend-giu"; freccia="↓"; }
     }
     const fuori=(ultimo.rifBasso!=null&&ultimo.valore<ultimo.rifBasso)||(ultimo.rifAlto!=null&&ultimo.valore>ultimo.rifAlto);
-    h+=`<div class="elemento-lista"><div class="titolo"><span>🩸 ${esc(nome)}</span>
+    const gid="graf-"+kCat.replace(/[^A-Za-z0-9]/g,"");
+    h+=`<div class="elemento-lista">
+      <div class="titolo"><span>🩸 ${esc(nome)}</span>
       <span class="${cls}">${freccia} ${arr.length>=2?trend:"1 misura"}</span></div>
-      <div class="sotto">Ultimo: <b class="${fuori?'trend-su':''}">${esc(String(ultimo.valore))}${ultimo.unita?" "+esc(ultimo.unita):""}</b> il ${ultimo.data}${arr.length>=2?` · prima: ${esc(String(primo.valore))} il ${primo.data}`:""}${fuori?" · ⚠️ fuori dai riferimenti":""}</div>`;
+      <div class="sotto">Ultimo: <b class="${fuori?'trend-su':''}">${esc(String(ultimo.valore))}${ultimo.unita?" "+esc(ultimo.unita):""}</b> il ${ultimo.data}${arr.length>=2?` · prima: ${esc(String(primo.valore))} il ${primo.data}`:""}${fuori?" · ⚠️ fuori dai riferimenti":""}</div>
+      <button class="dettagli-btn" style="margin-top:6px" onclick="togglaSezione('${gid}')">📈 Grafico e dettagli ▾</button>
+      <div id="${gid}" class="${sezClass(gid, true)}">`;
+    h+= arr.length>=2 ? graficoSangue(arr)
+        : `<div class="sotto">Una sola misura finora: il grafico dell'andamento comparirà dal secondo esame in poi.</div>`;
     if(arr.length>=4){
       const xs=[], yU=[], yS=[];
       for(const e of arr){ const u=finestraMedia(e.data,"umore",3), st=finestraSintomi(e.data,3);
@@ -1815,9 +1870,10 @@ function cartaSangue(){
           h+=`<div class="sotto">📈 Valori più ${rS>0?"alti":"bassi"} di <b>${esc(nome)}</b> si accompagnano a più disturbi nei giorni vicini. Indizio da verificare.</div>`;
       }
     }
-    h+=`</div>`;
+    h+=`</div></div>`;
   }
-  h+=`<div class="avviso" style="color:var(--grigio)">Con poche misurazioni questi collegamenti sono solo indizi, non prove: servono più esami distribuiti nel tempo.</div></div>`;
+  h+=`<div class="avviso" style="color:var(--grigio)">Con poche misurazioni questi collegamenti sono solo indizi, non prove: servono più esami distribuiti nel tempo.</div>`;
+  h+=`</div></div>`;
   return h;
 }
 function trovaCorrelazioni(){
