@@ -80,6 +80,10 @@ h2{font-size:1.15rem; margin:0 0 10px 0; color:var(--verde);}
 .dettagli-btn{width:100%; text-align:left; background:none; border:none; font-size:1rem;
   color:var(--blu); padding:6px 0; cursor:pointer; font-weight:600;}
 .nascosto{display:none;}
+.card.collassabile > h2{cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:8px; -webkit-user-select:none; user-select:none;}
+.card.collassabile > h2::after{content:"▾"; font-size:.7em; color:var(--grigio); transition:transform .2s; flex:0 0 auto;}
+.card.collassabile.collassato > h2::after{transform:rotate(-90deg);}
+.card.collassabile.collassato > *:not(h2){display:none !important;}
 .toggle-riga{display:flex; align-items:center; justify-content:space-between; padding:10px 0;}
 .interruttore{position:relative; width:58px; height:32px; flex-shrink:0;}
 .interruttore input{opacity:0; width:0; height:0;}
@@ -263,6 +267,7 @@ let vista = "oggi";
 let dataInModifica = oggi();
 let meseDiario = oggi().slice(0,7); // "AAAA-MM"
 let sezioniAperte = new Set();   // sezioni espandibili aperte (persistono tra i render)
+let sezioniSaluteAperte = new Set(); // carte della vista Salute espanse (di default tutte chiuse)
 let saluteRitorno = null;        // giorno da cui si è aperta la scheda Salute
 let scrollPos = {};              // posizione di scroll memorizzata per ogni sezione
 let authPronto = false;          // controllo sessione completato
@@ -580,7 +585,7 @@ function render(){
   if(vista==="oggi") app.innerHTML=vistaOggi();
   else if(vista==="diario") app.innerHTML=vistaDiario();
   else if(vista==="analisi"){ app.innerHTML=vistaAnalisi(); disegnaGrafico(); }
-  else if(vista==="salute") app.innerHTML=vistaSalute();
+  else if(vista==="salute"){ app.innerHTML=vistaSalute(); comprimiCarteSalute(); }
   else app.innerHTML=vistaImpostazioni();
 }
 function schermataCaricamento(){
@@ -927,6 +932,22 @@ function togglaSezione(id){
   if(el.classList.contains("nascosto")) sezioniAperte.delete(id); else sezioniAperte.add(id);
 }
 function sezClass(id, apertaSeVero){ return (sezioniAperte.has(id) || apertaSeVero) ? "" : "nascosto"; }
+/* Rende ogni carta della vista Salute comprimibile: di default chiusa, si espande toccando il titolo.
+   Lo stato aperto/chiuso persiste tra i render (così la sezione in uso resta aperta dopo un'aggiunta). */
+function comprimiCarteSalute(){
+  const app=document.getElementById("app"); if(!app) return;
+  app.querySelectorAll(":scope > .card").forEach(card=>{
+    const h2=card.querySelector("h2"); if(!h2) return;
+    card.classList.add("collassabile");
+    const key=h2.textContent.trim();
+    if(!sezioniSaluteAperte.has(key)) card.classList.add("collassato");
+    h2.addEventListener("click",()=>{
+      card.classList.toggle("collassato");
+      if(card.classList.contains("collassato")) sezioniSaluteAperte.delete(key);
+      else sezioniSaluteAperte.add(key);
+    });
+  });
+}
 function aggiungiVoceAttivita(ak){
   const v=voce(dataInModifica);
   if(!v.attivitaDett) v.attivitaDett={};
