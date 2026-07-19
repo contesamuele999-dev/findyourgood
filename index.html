@@ -80,10 +80,18 @@ h2{font-size:1.15rem; margin:0 0 10px 0; color:var(--verde);}
 .dettagli-btn{width:100%; text-align:left; background:none; border:none; font-size:1rem;
   color:var(--blu); padding:6px 0; cursor:pointer; font-weight:600;}
 .nascosto{display:none;}
+.nascosto.ric-mostra{display:block !important;}
 .card.collassabile > h2{cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:8px; -webkit-user-select:none; user-select:none;}
 .card.collassabile > h2::after{content:"▾"; font-size:.7em; color:var(--grigio); transition:transform .2s; flex:0 0 auto;}
 .card.collassabile.collassato > h2::after{transform:rotate(-90deg);}
 .card.collassabile.collassato > *:not(h2){display:none !important;}
+.chiudi-sezione{margin-top:12px; width:100%; padding:9px; border:1px solid var(--bordo); border-radius:12px; background:var(--input); color:var(--grigio); font-family:inherit; font-size:.85rem; cursor:pointer;}
+.chiudi-sezione:hover{border-color:var(--verde); color:var(--verde);}
+.chip.chip-attivo{background:var(--verde); color:#fff; border-color:var(--verde);}
+.barra-ricerca{display:flex; align-items:center; gap:8px; background:var(--card); border:2px solid var(--bordo); border-radius:14px; padding:8px 12px; margin-bottom:12px; position:sticky; top:8px; z-index:20; box-shadow:0 2px 8px var(--ombra);}
+.barra-ricerca .lente{flex:0 0 auto; opacity:.7;}
+.barra-ricerca input{flex:1; border:none; background:transparent; color:var(--testo); font-family:inherit; font-size:1rem; outline:none;}
+.barra-ricerca .pulisci-ric{flex:0 0 auto; border:none; background:var(--input); color:var(--testo); border-radius:999px; width:26px; height:26px; cursor:pointer; font-size:.8rem;}
 .toggle-riga{display:flex; align-items:center; justify-content:space-between; padding:10px 0;}
 .interruttore{position:relative; width:58px; height:32px; flex-shrink:0;}
 .interruttore input{opacity:0; width:0; height:0;}
@@ -267,7 +275,9 @@ let vista = "oggi";
 let dataInModifica = oggi();
 let meseDiario = oggi().slice(0,7); // "AAAA-MM"
 let sezioniAperte = new Set();   // sezioni espandibili aperte (persistono tra i render)
-let sezioniSaluteAperte = new Set(); // carte della vista Salute espanse (di default tutte chiuse)
+let carteAperte = new Set();     // carte espanse in ogni vista (chiave: vista|titolo); default tutte chiuse
+let queryRicerca = "";           // testo di ricerca per filtrare la vista attuale
+let periodoSangue = {preset:"tutto", da:"", a:""}; // periodo di riferimento dei grafici degli esami
 let saluteRitorno = null;        // giorno da cui si è aperta la scheda Salute
 let scrollPos = {};              // posizione di scroll memorizzata per ogni sezione
 let authPronto = false;          // controllo sessione completato
@@ -582,11 +592,24 @@ function render(){
     document.getElementById("nav-"+v).classList.toggle("attivo", vista===v);
   });
   aggiornaProfiliUI();
-  if(vista==="oggi") app.innerHTML=vistaOggi();
-  else if(vista==="diario") app.innerHTML=vistaDiario();
-  else if(vista==="analisi"){ app.innerHTML=vistaAnalisi(); disegnaGrafico(); }
-  else if(vista==="salute"){ app.innerHTML=vistaSalute(); comprimiCarteSalute(); }
-  else app.innerHTML=vistaImpostazioni();
+  let corpo="";
+  if(vista==="oggi") corpo=vistaOggi();
+  else if(vista==="diario") corpo=vistaDiario();
+  else if(vista==="analisi") corpo=vistaAnalisi();
+  else if(vista==="salute") corpo=vistaSalute();
+  else corpo=vistaImpostazioni();
+  app.innerHTML=barraRicerca()+corpo;
+  comprimiCarte();
+  if(vista==="analisi") disegnaGrafico();
+  if(queryRicerca) filtraPagina(queryRicerca);
+}
+function barraRicerca(){
+  return `<div class="barra-ricerca">
+    <span class="lente">🔍</span>
+    <input type="search" id="ricerca-globale" placeholder="Cerca in questa pagina…" value="${esc(queryRicerca)}"
+      oninput="filtraPagina(this.value)" autocomplete="off">
+    ${queryRicerca?`<button class="pulisci-ric" title="Cancella" onclick="filtraPagina('');document.getElementById('ricerca-globale').value=''">✕</button>`:""}
+  </div>`;
 }
 function schermataCaricamento(){
   return `<div style="text-align:center; margin:60px 0; color:var(--grigio)">
@@ -932,20 +955,64 @@ function togglaSezione(id){
   if(el.classList.contains("nascosto")) sezioniAperte.delete(id); else sezioniAperte.add(id);
 }
 function sezClass(id, apertaSeVero){ return (sezioniAperte.has(id) || apertaSeVero) ? "" : "nascosto"; }
-/* Rende ogni carta della vista Salute comprimibile: di default chiusa, si espande toccando il titolo.
+/* Rende ogni carta della vista comprimibile: di default chiusa, si espande toccando il titolo.
    Lo stato aperto/chiuso persiste tra i render (così la sezione in uso resta aperta dopo un'aggiunta). */
-function comprimiCarteSalute(){
+function chiaveCarta(card){ const h2=card.querySelector("h2"); return vista+"|"+(h2?h2.textContent.trim():""); }
+function applicaStatoCarta(card){
+  if(carteAperte.has(chiaveCarta(card))) card.classList.remove("collassato");
+  else card.classList.add("collassato");
+}
+function toggleCarta(card, forzaChiudi){
+  const k=chiaveCarta(card);
+  if(forzaChiudi){ card.classList.add("collassato"); carteAperte.delete(k); return; }
+  card.classList.toggle("collassato");
+  if(card.classList.contains("collassato")) carteAperte.delete(k);
+  else carteAperte.add(k);
+}
+function comprimiCarte(){
   const app=document.getElementById("app"); if(!app) return;
   app.querySelectorAll(":scope > .card").forEach(card=>{
     const h2=card.querySelector("h2"); if(!h2) return;
     card.classList.add("collassabile");
-    const key=h2.textContent.trim();
-    if(!sezioniSaluteAperte.has(key)) card.classList.add("collassato");
-    h2.addEventListener("click",()=>{
-      card.classList.toggle("collassato");
-      if(card.classList.contains("collassato")) sezioniSaluteAperte.delete(key);
-      else sezioniSaluteAperte.add(key);
-    });
+    applicaStatoCarta(card);
+    h2.addEventListener("click",()=>toggleCarta(card));
+    // Pulsante "chiudi" anche in fondo alla sezione (evita di risalire in cima)
+    if(!card.querySelector(":scope > .chiudi-sezione")){
+      const b=document.createElement("button");
+      b.type="button"; b.className="chiudi-sezione"; b.textContent="▲ Chiudi sezione";
+      b.addEventListener("click",()=>{ toggleCarta(card,true); card.scrollIntoView({block:"start",behavior:"smooth"}); });
+      card.appendChild(b);
+    }
+  });
+}
+/* Ricerca: filtra le carte (e le voci al loro interno) della vista attuale in base al testo. */
+function filtraPagina(q){
+  queryRicerca=q||"";
+  const nq=normNome(queryRicerca.trim());
+  const app=document.getElementById("app"); if(!app) return;
+  // mostra/nasconde il pulsante "cancella" senza rigenerare la barra (mantiene il focus)
+  const cont=app.querySelector(".barra-ricerca");
+  if(cont){ let x=cont.querySelector(".pulisci-ric");
+    if(nq && !x){ x=document.createElement("button"); x.className="pulisci-ric"; x.title="Cancella"; x.textContent="✕";
+      x.addEventListener("click",()=>{ const inp=document.getElementById("ricerca-globale"); if(inp) inp.value=""; filtraPagina(""); }); cont.appendChild(x); }
+    else if(!nq && x){ x.remove(); } }
+  app.querySelectorAll(":scope > .card").forEach(card=>{
+    const righe=card.querySelectorAll(".elemento-lista, .imp-riga");
+    if(!nq){
+      card.style.display=""; applicaStatoCarta(card);
+      righe.forEach(r=>r.style.display="");
+      card.querySelectorAll(".ric-mostra").forEach(el=>el.classList.remove("ric-mostra"));
+      return;
+    }
+    const titolo=normNome((card.querySelector("h2")||{}).textContent||"");
+    const titoloMatch=titolo.includes(nq);
+    const testoMatch=normNome(card.textContent||"").includes(nq);
+    if(titoloMatch||testoMatch){
+      card.style.display=""; card.classList.remove("collassato");
+      // rivela le eventuali sottosezioni chiuse dentro la carta (es. i singoli esami)
+      card.querySelectorAll(".nascosto").forEach(el=>el.classList.add("ric-mostra"));
+      righe.forEach(r=>{ r.style.display=(titoloMatch||normNome(r.textContent||"").includes(nq))?"":"none"; });
+    } else { card.style.display="none"; }
   });
 }
 function aggiungiVoceAttivita(ak){
@@ -1800,6 +1867,23 @@ function pearson(xs, ys){
   if(sxx===0||syy===0) return null;
   return sxy/Math.sqrt(sxx*syy);
 }
+/* ===== Periodo di riferimento dei grafici ===== */
+function periodoCutoff(){
+  const p=periodoSangue;
+  if(p.preset==="custom") return {da:p.da||null, a:p.a||null};
+  const mesi={"1m":1,"3m":3,"6m":6,"1a":12}[p.preset];
+  if(!mesi) return {da:null, a:null};
+  const d=new Date(); d.setMonth(d.getMonth()-mesi);
+  return {da:d.toISOString().slice(0,10), a:null};
+}
+function filtraPerPeriodo(arr){ const {da,a}=periodoCutoff(); return arr.filter(e=>(!da||e.data>=da)&&(!a||e.data<=a)); }
+function impostaPeriodoSangue(preset){ periodoSangue={preset, da:"", a:""}; render(); }
+function impostaPeriodoSangueData(k,v){ periodoSangue.preset="custom"; periodoSangue[k]=v; render(); }
+function etichettaPeriodo(){
+  const p=periodoSangue;
+  if(p.preset==="custom") return (p.da||"inizio")+" → "+(p.a||"oggi");
+  return {"1m":"ultimo mese","3m":"ultimi 3 mesi","6m":"ultimi 6 mesi","1a":"ultimo anno","tutto":"tutto lo storico"}[p.preset]||"tutto lo storico";
+}
 /* Grafico SVG dell'andamento nel tempo di un singolo esame (nessuna libreria, funziona offline) */
 function graficoSangue(arr){
   const fmt=n=>{ const r=Math.round(n*100)/100; return String(r); };
@@ -1850,17 +1934,30 @@ function cartaSangue(){
   const chiaviCat=Object.keys(perCat).sort((a,b)=>{
     const na=(categoriaById(sp,a)||{}).nome||perCat[a][0].nome, nb=(categoriaById(sp,b)||{}).nome||perCat[b][0].nome;
     return norm(na).localeCompare(norm(nb)); });
-  // conteggio esami fuori dai riferimenti (ultimo valore)
+  // filtra per periodo scelto e tieni solo gli esami con misure nel periodo
+  const catArr={}, chiaviVis=[];
+  for(const kCat of chiaviCat){
+    const arr=filtraPerPeriodo(perCat[kCat]).slice().sort((a,b)=>a.data<b.data?-1:1);
+    if(arr.length){ catArr[kCat]=arr; chiaviVis.push(kCat); }
+  }
   let nFuori=0;
-  for(const kCat of chiaviCat){ const arr=perCat[kCat]; const u=arr.slice().sort((a,b)=>a.data<b.data?-1:1)[arr.length-1];
+  for(const kCat of chiaviVis){ const u=catArr[kCat][catArr[kCat].length-1];
     if((u.rifBasso!=null&&u.valore<u.rifBasso)||(u.rifAlto!=null&&u.valore>u.rifAlto)) nFuori++; }
   let h=`<div class="card"><h2>🩸 Esami del sangue</h2>`;
-  h+=`<div class="sotto" style="margin-top:0">${chiaviCat.length} esami monitorati${nFuori?` · <b class="trend-su">${nFuori} fuori dai riferimenti</b>`:" · <span class='trend-stab'>tutti nei riferimenti</span>"}.</div>`;
-  h+=`<button class="dettagli-btn" onclick="togglaSezione('sangue-singoli')">📊 Mostra i singoli esami e i grafici (${chiaviCat.length}) ▾</button>`;
+  const P=periodoSangue.preset;
+  const cbtn=(id,lab)=>`<button class="chip${P===id?' chip-attivo':''}" onclick="impostaPeriodoSangue('${id}')">${lab}</button>`;
+  h+=`<div class="sotto" style="margin-top:0;margin-bottom:6px">📅 Periodo dei grafici: <b>${esc(etichettaPeriodo())}</b></div>
+    <div class="chips">${cbtn('1m','1M')}${cbtn('3m','3M')}${cbtn('6m','6M')}${cbtn('1a','1A')}${cbtn('tutto','Tutto')}</div>
+    <div class="form-riga" style="margin-top:6px">
+      <input type="date" value="${esc(periodoSangue.da||'')}" onchange="impostaPeriodoSangueData('da',this.value)" title="Da">
+      <input type="date" value="${esc(periodoSangue.a||'')}" onchange="impostaPeriodoSangueData('a',this.value)" title="A"></div>`;
+  h+=`<div class="sotto" style="margin-top:8px">${chiaviVis.length} esami nel periodo${nFuori?` · <b class="trend-su">${nFuori} fuori dai riferimenti</b>`:(chiaviVis.length?" · <span class='trend-stab'>tutti nei riferimenti</span>":"")}.</div>`;
+  if(!chiaviVis.length){ h+=`<div class="avviso" style="color:var(--grigio)">Nessuna misura nel periodo selezionato.</div></div>`; return h; }
+  h+=`<button class="dettagli-btn" onclick="togglaSezione('sangue-singoli')">📊 Mostra i singoli esami e i grafici (${chiaviVis.length}) ▾</button>`;
   h+=`<div id="sangue-singoli" class="${sezClass('sangue-singoli')}">`;
-  for(const kCat of chiaviCat){
+  for(const kCat of chiaviVis){
     const nome=(categoriaById(sp,kCat)||{}).nome||perCat[kCat][0].nome;
-    const arr=perCat[kCat].slice().sort((a,b)=>a.data<b.data?-1:1);
+    const arr=catArr[kCat];
     const primo=arr[0], ultimo=arr[arr.length-1];
     let trend="stabile", cls="trend-stab", freccia="→";
     if(arr.length>=2){
