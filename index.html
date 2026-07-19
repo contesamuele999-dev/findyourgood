@@ -2151,8 +2151,13 @@ function vistaSalute(){
       h+=`</div>`;
     }
   }
+  h+=`<div class="import-sangue" style="margin:4px 0 10px;padding:12px;border:1px dashed var(--bordo);border-radius:12px">
+      <div class="sotto" style="margin-top:0;margin-bottom:8px"><b>📄 Modello Excel</b> — scaricalo per capire il formato, inserisci i tuoi valori sotto le colonne con le date e poi ricaricalo qui sopra.</div>
+      <div class="chips"><button class="chip" onclick="scaricaTemplateSangue()">⬇️ Scarica il modello Excel</button></div>
+      <div id="tmpl-stato" class="sotto" style="margin:8px 0 0;display:none"></div>
+    </div>`;
   h+=`<div class="import-sangue" style="margin:4px 0 12px;padding:12px;border:1px dashed var(--bordo);border-radius:12px">
-      <div class="sotto" style="margin-top:0;margin-bottom:8px"><b>📥 Importa automaticamente</b> i valori da un referto o da un foglio riepilogativo. Rivedrai sempre i valori prima di salvarli.</div>
+      <div class="sotto" style="margin-top:0;margin-bottom:8px"><b>📥 Importa automaticamente</b> i valori da un referto o da un foglio riepilogativo (anche il modello qui sopra una volta compilato). Rivedrai sempre i valori prima di salvarli.</div>
       <div class="chips">
         <button class="chip" onclick="document.getElementById('imp-excel').click()">📊 Excel/CSV</button>
         <button class="chip" onclick="document.getElementById('imp-pdf').click()">📄 PDF referto</button>
@@ -2691,6 +2696,70 @@ function parseDataFlessibile(v){
   m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/);
   if(m){ let y=m[3]; if(y.length===2) y="20"+y; return `${y}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`; }
   return null;
+}
+/* Pannello standard di esami del sangue: [nome, range, unità] — usato per il modello scaricabile */
+const STD_SANGUE=[
+  ["Globuli rossi (Eritrociti RBC)","4,3 - 5,9","milioni/uL"],
+  ["Emoglobina (Hb/HGB)","13,5 - 17,5","g/dL"],
+  ["Ematocrito","39 - 55","%"],
+  ["Globuli bianchi (leucociti)","4 - 10","mila/uL"],
+  ["Neutrofili","40 - 70","%"],
+  ["Linfociti","15 - 45","%"],
+  ["Eosinofili","0,0 - 0,5","mila/uL"],
+  ["Piastrine","150 - 450","mila/uL"],
+  ["Glicemia","70 - 100","mg/dL"],
+  ["Colesterolo","< 200","mg/dL"],
+  ["Trigliceridi","< 150","mg/dL"],
+  ["Lipasi","< 67","U/L"],
+  ["AST (Aspartato-aminotrasferasi)","< 50","U/L"],
+  ["ALT (Alanina-aminotrasferasi)","< 50","U/L"],
+  ["Gamma-GT","< 55","U/L"],
+  ["Fosfatasi alcalina","30 - 120","U/L"],
+  ["Bilirubina Totale","0,30 - 1,20","mg/dl"],
+  ["Ferro","65 - 170","ug/dl"],
+  ["Ferritina","24 - 336","ng/ml"],
+  ["Albumina","52,7 - 67,4","%"],
+  ["Creatinina","0,6 - 1,2","mg/dL"],
+  ["Vitamina D","30 - 100","ng/ml"],
+  ["Vitamina B12","180 - 914","pg/ml"],
+  ["Sodio","135 - 150","mmol/L"],
+  ["Potassio","3,6 - 5","mmol/L"],
+  ["Cloro","101 - 109","mmol/L"]
+];
+/* Genera e scarica un modello Excel compatibile con l'import (esami in riga, date in colonna). */
+async function scaricaTemplateSangue(){
+  const st=document.getElementById("tmpl-stato");
+  const stato=(t,m)=>{ if(st){ st.style.display=m===false?"none":"block"; st.innerHTML=t; } };
+  try{
+    stato("📊 Preparo il modello…");
+    if(!window.XLSX) await caricaLib("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js");
+    const sp=saluteProfilo();
+    const righeEsami=[], visti=new Set();
+    const push=(nome,range,unita)=>{ const k=normNome(nome); if(!k||visti.has(k)) return; visti.add(k); righeEsami.push([nome,"","","",range||"",unita||""]); };
+    // prima gli esami che l'utente segue già (con l'ultimo range/unità noti)
+    for(const c of (sp.categorie||[])){
+      let range="";
+      const u=(sp.sangue||[]).filter(e=>e.catId===c.id&&(e.rifBasso!=null||e.rifAlto!=null)).sort((a,b)=>a.data<b.data?1:-1)[0];
+      if(u){ if(u.rifBasso!=null&&u.rifAlto!=null) range=u.rifBasso+" - "+u.rifAlto; else if(u.rifAlto!=null) range="< "+u.rifAlto; else if(u.rifBasso!=null) range="> "+u.rifBasso; }
+      push(c.nome, range, c.unita||"");
+    }
+    for(const [n,r,u] of STD_SANGUE) push(n,r,u);
+    // tre date d'esempio da sostituire con le proprie
+    const fmt=d=>d.toISOString().slice(0,10);
+    const t0=new Date(), t1=new Date(), t2=new Date(); t1.setMonth(t1.getMonth()-1); t2.setMonth(t2.getMonth()-2);
+    const aoa=[];
+    aoa.push(["Andamento valori del sangue — scrivi i tuoi valori sotto le date"]);
+    aoa.push(["Esame", fmt(t2), fmt(t1), fmt(t0), "Range", "Unità misura"]);
+    for(const r of righeEsami) aoa.push(r);
+    aoa.push([]);
+    aoa.push(["Come si usa: cambia le date nella riga 2 (formato AAAA-MM-GG), aggiungi le righe di esami che vuoi e scrivi i valori sotto ogni data. Poi ricaricalo con «📊 Excel/CSV»."]);
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"]=[{wch:34},{wch:13},{wch:13},{wch:13},{wch:14},{wch:14}];
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Esami");
+    XLSX.writeFile(wb, "Modello esami sangue.xlsx");
+    stato("✓ Modello scaricato: aprilo, compila i valori e ricaricalo qui.");
+    setTimeout(()=>stato("",false), 3500);
+  }catch(e){ stato("",false); alert("Non sono riuscito a creare il modello: "+(e&&e.message?e.message:e)+"\nServe una connessione per caricare lo strumento Excel."); }
 }
 async function importaSangue(input, tipo){
   const file=input.files&&input.files[0]; input.value=""; if(!file) return;
