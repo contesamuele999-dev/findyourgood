@@ -2697,7 +2697,7 @@ function parseDataFlessibile(v){
   if(m){ let y=m[3]; if(y.length===2) y="20"+y; return `${y}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`; }
   return null;
 }
-/* Pannello standard di esami del sangue: [nome, range, unità] — usato per il modello scaricabile */
+/* Pannello standard completo di esami del sangue: [nome, range, unità] — usato per il modello scaricabile */
 const STD_SANGUE=[
   ["Globuli rossi (Eritrociti RBC)","4,3 - 5,9","milioni/uL"],
   ["Emoglobina (Hb/HGB)","13,5 - 17,5","g/dL"],
@@ -2707,24 +2707,30 @@ const STD_SANGUE=[
   ["Linfociti","15 - 45","%"],
   ["Eosinofili","0,0 - 0,5","mila/uL"],
   ["Piastrine","150 - 450","mila/uL"],
-  ["Glicemia","70 - 100","mg/dL"],
-  ["Colesterolo","< 200","mg/dL"],
-  ["Trigliceridi","< 150","mg/dL"],
   ["Lipasi","< 67","U/L"],
   ["AST (Aspartato-aminotrasferasi)","< 50","U/L"],
   ["ALT (Alanina-aminotrasferasi)","< 50","U/L"],
   ["Gamma-GT","< 55","U/L"],
   ["Fosfatasi alcalina","30 - 120","U/L"],
   ["Bilirubina Totale","0,30 - 1,20","mg/dl"],
+  ["Bilirubina Diretta","0,00 - 0,20","mg/dl"],
+  ["Bilirubina Indiretta","0,20 - 0,80","mg/dl"],
+  ["Trigliceridi","< 150","mg/dL"],
+  ["Colesterolo","< 200","mg/dL"],
+  ["Sali biliari","0 - 16","umol/L"],
+  ["Acidi Biliari","< 2,7",""],
   ["Ferro","65 - 170","ug/dl"],
   ["Ferritina","24 - 336","ng/ml"],
   ["Albumina","52,7 - 67,4","%"],
+  ["AFP (Alfa 1 Feto Proteina)","0 - 10","ng/ml"],
+  ["CA 19-9 (antigene carboidrato)","0 - 38","U/mL"],
   ["Creatinina","0,6 - 1,2","mg/dL"],
   ["Vitamina D","30 - 100","ng/ml"],
   ["Vitamina B12","180 - 914","pg/ml"],
   ["Sodio","135 - 150","mmol/L"],
+  ["Cloro","101 - 109","mmol/L"],
   ["Potassio","3,6 - 5","mmol/L"],
-  ["Cloro","101 - 109","mmol/L"]
+  ["Glicemia","70 - 100","mg/dL"]
 ];
 /* Genera e scarica un modello Excel compatibile con l'import (esami in riga, date in colonna). */
 async function scaricaTemplateSangue(){
@@ -2734,8 +2740,10 @@ async function scaricaTemplateSangue(){
     stato("📊 Preparo il modello…");
     if(!window.XLSX) await caricaLib("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js");
     const sp=saluteProfilo();
+    const NDATE=12;                       // colonne data lasciate vuote da compilare
+    const vuote=Array(NDATE).fill("");
     const righeEsami=[], visti=new Set();
-    const push=(nome,range,unita)=>{ const k=normNome(nome); if(!k||visti.has(k)) return; visti.add(k); righeEsami.push([nome,"","","",range||"",unita||""]); };
+    const push=(nome,range,unita)=>{ const k=normNome(nome); if(!k||visti.has(k)) return; visti.add(k); righeEsami.push([nome, ...vuote, range||"", unita||""]); };
     // prima gli esami che l'utente segue già (con l'ultimo range/unità noti)
     for(const c of (sp.categorie||[])){
       let range="";
@@ -2744,17 +2752,13 @@ async function scaricaTemplateSangue(){
       push(c.nome, range, c.unita||"");
     }
     for(const [n,r,u] of STD_SANGUE) push(n,r,u);
-    // tre date d'esempio da sostituire con le proprie
-    const fmt=d=>d.toISOString().slice(0,10);
-    const t0=new Date(), t1=new Date(), t2=new Date(); t1.setMonth(t1.getMonth()-1); t2.setMonth(t2.getMonth()-2);
+    // layout come il template: titolo, riga intestazione con date VUOTE, poi Range e Unità
     const aoa=[];
-    aoa.push(["Andamento valori del sangue — scrivi i tuoi valori sotto le date"]);
-    aoa.push(["Esame", fmt(t2), fmt(t1), fmt(t0), "Range", "Unità misura"]);
+    aoa.push(["Andamento valori del sangue — scrivi le date nella riga qui sotto (formato AAAA-MM-GG) e i valori sotto ogni data"]);
+    aoa.push(["Esame", ...vuote, "Range", "Unità misura"]);
     for(const r of righeEsami) aoa.push(r);
-    aoa.push([]);
-    aoa.push(["Come si usa: cambia le date nella riga 2 (formato AAAA-MM-GG), aggiungi le righe di esami che vuoi e scrivi i valori sotto ogni data. Poi ricaricalo con «📊 Excel/CSV»."]);
     const ws=XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"]=[{wch:34},{wch:13},{wch:13},{wch:13},{wch:14},{wch:14}];
+    ws["!cols"]=[{wch:34}, ...Array(NDATE).fill({wch:11}), {wch:14}, {wch:14}];
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Esami");
     XLSX.writeFile(wb, "Modello esami sangue.xlsx");
     stato("✓ Modello scaricato: aprilo, compila i valori e ricaricalo qui.");
