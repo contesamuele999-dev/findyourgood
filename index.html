@@ -509,7 +509,7 @@ const TEMP_ETI=["Molto freddo","Freddo","Normale","Caldo","Molto caldo"];
 function tempTesto(n){ if(n==null) return ""; return (n>=1&&n<=5)?TEMP_ETI[n-1]:(n+"°C"); }
 const PASTI=[["colazione","🍞 Colazione"],["merendaMattino","🍎 Merenda mattino"],["pranzo","🍝 Pranzo"],["merendaPomeriggio","🍏 Merenda pomeriggio"],["cena","🍲 Cena"]];
 /* Opzione facoltativa: tipo prevalente di pasto, da correlare col resto */
-const MACRO=[["carbo","🍞 Carboidrati"],["proteine","🥩 Proteine"],["misto","⚖️ Misto"]];
+const MACRO=[["carbo","🍞 Carboidrati"],["proteine","💪 Proteine"],["misto","⚖️ Misto"]];
 const QUANTITA=[["saltato","Saltato"],["poco","Poco"],["normale","Normale"],["belPo","Un bel po'"],["troppo","Troppo"]];
 const SOLE=[["zero","🚫 Niente"],["q15","Meno di 15 min"],["q30","15-30 min"],["q30p","Più di 30 min"]];
 function soleSufficiente(v){ return v.sole==="q30p" || (v.sole==="q30" && !v.nuvoloso); }
@@ -873,7 +873,14 @@ function vistaOggi(){
     if(!v.attivita.includes(ak)) continue;
     if(!v.attivitaDett) v.attivitaDett={};
     let entries=v.attivitaDett[ak];
-    if(!entries){ entries = (v.attivitaTipo&&v.attivitaTipo[ak]) ? [{n:v.attivitaTipo[ak], d:"", o:""}] : []; v.attivitaDett[ak]=entries; }
+    if(!entries){
+      const base=nuovaVoceAttivita(ak);
+      if(v.attivitaTipo&&v.attivitaTipo[ak]) base.n=v.attivitaTipo[ak];
+      const haDefault = base.n || (base.d!==''&&base.d!=null) || base.o || base.int;
+      // crea la prima voce solo se c'è qualcosa da mostrare (tipo salvato o default ereditati)
+      entries = haDefault ? [base] : [];
+      v.attivitaDett[ak]=entries;
+    }
     const sugg=suggerimentiTipo(ak);
     const nomePulito=an.replace(/^[^ ]+ /,"").toLowerCase();
     h+=`<div class="tipo-attivita">
@@ -1015,11 +1022,33 @@ function filtraPagina(q){
     } else { card.style.display="none"; }
   });
 }
+/* Cerca l'ultima voce registrata per una data attività (giorno più recente prima
+   di quello in modifica) da cui ereditare durata e orario di default. */
+function ultimaVoceAttivita(ak){
+  const voci=vociProfilo();
+  const date=Object.keys(voci).filter(d=>d<dataInModifica).sort().reverse();
+  for(const d of date){
+    const dett=voci[d].attivitaDett && voci[d].attivitaDett[ak];
+    if(Array.isArray(dett)){
+      for(let i=dett.length-1;i>=0;i--){
+        const e=dett[i];
+        if(e && ((e.d!==''&&e.d!=null) || (e.o!=null&&e.o!=='') || (e.int!=null&&e.int!==''))) return e;
+      }
+    }
+  }
+  return null;
+}
+/* Crea una nuova voce attività, ereditando durata/orario/intensità dall'ultima volta. */
+function nuovaVoceAttivita(ak){
+  const prec=ultimaVoceAttivita(ak);
+  return prec ? {n:"", d:(prec.d!==''&&prec.d!=null)?prec.d:"", o:prec.o||"", int:prec.int||""}
+              : {n:"", d:"", o:""};
+}
 function aggiungiVoceAttivita(ak){
   const v=voce(dataInModifica);
   if(!v.attivitaDett) v.attivitaDett={};
   if(!v.attivitaDett[ak]) v.attivitaDett[ak]=[];
-  v.attivitaDett[ak].push({n:"", d:"", o:""});
+  v.attivitaDett[ak].push(nuovaVoceAttivita(ak));
   v.agg=Date.now(); salva(); render();
 }
 function impostaVoceAttivita(ak, idx, campo, val){
@@ -1619,6 +1648,7 @@ function vistaAnalisi(){
   }
   h+=`<div class="avviso">⚠️ Questi sono indizi statistici, non diagnosi mediche. Per disturbi persistenti rivolgiti a un medico.</div></div>`;
 
+  h+=cartaGrafoCorrelazioni();
   h+=cartaSangue();
   h+=cartaConsigli();
   return h;
@@ -1994,11 +2024,13 @@ function cartaSangue(){
   h+=`</div></div>`;
   return h;
 }
-function trovaCorrelazioni(){
+/* Motore comune: restituisce le coppie fattore→esito significative, con struttura
+   (usato sia dall'elenco testuale sia dalla mappa delle correlazioni). */
+function coppieCorrelazioni(){
   const voci=vociProfilo();
   const date=Object.keys(voci).filter(d=>compilato(d)).sort();
   if(date.length<14) return [];
-  const risultati=[];
+  const out=[];
   for(const [fk,fNome,fTest,eBenefico] of FATTORI.concat(fattoriDinamici())){
     for(const [ek,eNome,eTest] of ESITI){
       if(fk==="cattivoSonno"&&ek==="cattivoSonnoEsito") continue;
@@ -2016,24 +2048,238 @@ function trovaCorrelazioni(){
         const p1=conFE/conF, p0=senzaFE/senzaF;
         const diff=p1-p0;
         if(Math.abs(diff)<0.2) continue;
-        const quando=lag===1?"Il giorno dopo":"Nei giorni con";
-        const pct=x=>Math.round(x*100)+"%";
-        let testo, positiva;
-        if(diff>0){
-          positiva=false;
-          testo=`⚠️ <b>${quando} ${fNome}</b> hai avuto <b>${eNome}</b> molto più spesso: ${pct(p1)} delle volte, contro ${pct(p0)} negli altri giorni.`;
-          if(eBenefico) continue; // attività benefica che "causa" sintomi: probabile rumore, salta
-        } else {
-          positiva=true;
-          testo=`✅ <b>${quando} ${fNome}</b> hai avuto meno ${eNome}: ${pct(p1)} delle volte, contro ${pct(p0)} negli altri giorni.`;
-        }
-        risultati.push({testo, positiva, forza:Math.abs(diff),
-          dettaglio:`Basato su ${conF} giorni con e ${senzaF} senza. ${lag===1?"(effetto del giorno dopo)":""}`});
+        const positiva=diff<0;
+        if(!positiva && eBenefico) continue; // attività benefica che "causa" sintomi: probabile rumore, salta
+        out.push({fk,fNome,ek,eNome,forza:Math.abs(diff),positiva,lag,conF,senzaF,p1,p0});
       }
     }
   }
-  risultati.sort((a,b)=>b.forza-a.forza);
+  out.sort((a,b)=>b.forza-a.forza);
+  return out;
+}
+function trovaCorrelazioni(){
+  const pct=x=>Math.round(x*100)+"%";
+  const risultati=coppieCorrelazioni().map(c=>{
+    const quando=c.lag===1?"Il giorno dopo":"Nei giorni con";
+    const testo = c.positiva
+      ? `✅ <b>${quando} ${c.fNome}</b> hai avuto meno ${c.eNome}: ${pct(c.p1)} delle volte, contro ${pct(c.p0)} negli altri giorni.`
+      : `⚠️ <b>${quando} ${c.fNome}</b> hai avuto <b>${c.eNome}</b> molto più spesso: ${pct(c.p1)} delle volte, contro ${pct(c.p0)} negli altri giorni.`;
+    return {testo, positiva:c.positiva, forza:c.forza,
+      dettaglio:`Basato su ${c.conF} giorni con e ${c.senzaF} senza. ${c.lag===1?"(effetto del giorno dopo)":""}`};
+  });
   return risultati.slice(0,10);
+}
+
+/* ============ MAPPA DELLE CORRELAZIONI (grafo orientato e pesato) ============ */
+/* Ogni fattore/esito viene ricondotto a un "punto focale" (nodo). Più chiavi
+   possono confluire sullo stesso nodo (es. cattivoSonno + cattivoSonnoEsito → sonno). */
+const NODO_MAP={
+  // fattori legati all'alimentazione
+  eccezione:{id:'dieta',label:'Dieta / eccezioni',emoji:'🍽️'},
+  troppo:{id:'dieta',label:'Dieta / eccezioni',emoji:'🍽️'},
+  saltato:{id:'dieta',label:'Dieta / eccezioni',emoji:'🍽️'},
+  abbondante:{id:'dieta',label:'Dieta / eccezioni',emoji:'🍽️'},
+  pastiCarbo:{id:'carbo',label:'Carboidrati',emoji:'🍞'},
+  pastiProteine:{id:'proteine',label:'Proteine',emoji:'💪'},
+  // stati e clima
+  freddo:{id:'freddoPreso',label:'Preso freddo',emoji:'🥶'},
+  cattivoSonno:{id:'sonno',label:'Sonno',emoji:'😴'},
+  cattivoSonnoEsito:{id:'sonno',label:'Sonno',emoji:'😴'},
+  stressAlto:{id:'stress',label:'Stress',emoji:'😰'},
+  stressAltoEsito:{id:'stress',label:'Stress',emoji:'😰'},
+  sedentario:{id:'sedentario',label:'Sedentarietà',emoji:'🛋️'},
+  igiene:{id:'igiene',label:'Igiene',emoji:'🧼'},
+  pisolinoPasto:{id:'pisolino',label:'Pisolino post-pasto',emoji:'😪'},
+  sport:{id:'sport',label:'Attività fisica',emoji:'🏃'},
+  meditazione:{id:'meditazione',label:'Meditazione',emoji:'🧘'},
+  riposo:{id:'riposo',label:'Riposo / relax',emoji:'🌴'},
+  intimita:{id:'intimita',label:'Intimità',emoji:'❤️'},
+  pocoSole:{id:'sole',label:'Sole',emoji:'☀️'},
+  caldo:{id:'caldo',label:'Caldo',emoji:'🥵'},
+  gelo:{id:'gelo',label:'Freddo (clima)',emoji:'❄️'},
+  pocaAcqua:{id:'acqua',label:'Idratazione',emoji:'💧'},
+  urinaScura:{id:'acqua',label:'Idratazione',emoji:'💧'},
+  // esiti
+  malPancia:{id:'malPancia',label:'Mal di pancia',emoji:'🤢'},
+  malTesta:{id:'malTesta',label:'Mal di testa',emoji:'🤕'},
+  dolori:{id:'dolori',label:'Dolori',emoji:'💢'},
+  fastidi:{id:'fastidi',label:'Fastidi',emoji:'🩹'},
+  malattia:{id:'malattia',label:'Malattia',emoji:'🤒'},
+  allergie:{id:'allergie',label:'Allergie',emoji:'🤧'},
+  umoreBasso:{id:'umore',label:'Umore',emoji:'🙂'},
+  stanco:{id:'stanchezza',label:'Stanchezza',emoji:'🥱'},
+  sonnolento:{id:'sonnolenza',label:'Sonnolenza',emoji:'😪'},
+};
+/* Elenco unico dei punti focali noti (per i menu del collegamento manuale) */
+function nodiFocali(){
+  const visti={}, out=[];
+  for(const k in NODO_MAP){ const n=NODO_MAP[k]; if(!visti[n.id]){ visti[n.id]=1; out.push(n); } }
+  return out.sort((a,b)=>a.label.localeCompare(b.label,"it"));
+}
+function nodoPer(k, nome){
+  if(NODO_MAP[k]) return NODO_MAP[k];
+  let label=String(nome||k).replace(/^"?(il|lo|la|una|un|gli|le)\s+/i,'').replace(/"/g,'').trim();
+  if(label.length>24) label=label.slice(0,22)+'…';
+  let emoji='•';
+  if(k.startsWith('farm_')) emoji='💊'; else if(k.startsWith('tratt_')) emoji='🧑‍⚕️';
+  else if(k.startsWith('visita')) emoji='🩺'; else if(k.startsWith('notizia')) emoji='📬';
+  return {id:k, label, emoji};
+}
+/* Costruisce nodi e archi combinando correlazioni automatiche + collegamenti manuali. */
+function datiGrafoCorrelazioni(){
+  const nodi={}; const archi={};
+  const addNodo=n=>{ if(!nodi[n.id]) nodi[n.id]={id:n.id,label:n.label,emoji:n.emoji}; return nodi[n.id]; };
+  const addArco=(daId,aId,forza,positiva,auto,nota)=>{
+    if(daId===aId) return;
+    const key=daId+'>'+aId;
+    const ex=archi[key];
+    if(!ex || forza>ex.forza){ archi[key]={daId,aId,forza,positiva,auto,nota:nota||(ex&&ex.nota)||''}; }
+  };
+  // automatiche
+  for(const c of coppieCorrelazioni()){
+    const da=nodoPer(c.fk,c.fNome), a=nodoPer(c.ek,c.eNome);
+    addNodo(da); addNodo(a);
+    addArco(da.id, a.id, c.forza, c.positiva, true);
+  }
+  // manuali
+  const sp=saluteProfilo(); const man=(sp&&sp.grafoManuale)||[];
+  for(const m of man){
+    addNodo({id:m.daId,label:m.daLabel,emoji:m.daEmoji||'•'});
+    addNodo({id:m.aId,label:m.aLabel,emoji:m.aEmoji||'•'});
+    addArco(m.daId, m.aId, m.forza, m.positiva, false, m.nota);
+  }
+  return {nodi:Object.values(nodi), archi:Object.values(archi)};
+}
+/* Disegna il grafo come SVG inline (nessuna libreria esterna). */
+function svgGrafoCorrelazioni(dati){
+  const N=dati.nodi.length;
+  if(!N) return "";
+  const W=400, H=Math.max(360, 300+N*6), cx=W/2, cy=H/2, R=Math.min(cx,cy)-56, rN=21;
+  const pos={};
+  dati.nodi.forEach((n,i)=>{ const ang=-Math.PI/2 + i*2*Math.PI/N;
+    pos[n.id]={x:cx+R*Math.cos(ang), y:cy+R*Math.sin(ang)}; });
+  let archiSvg="";
+  for(const a of dati.archi){
+    const p=pos[a.daId], q=pos[a.aId]; if(!p||!q) continue;
+    const dx=q.x-p.x, dy=q.y-p.y, len=Math.hypot(dx,dy)||1, ux=dx/len, uy=dy/len;
+    // accorcia agli estremi per non entrare nei cerchi + spazio freccia
+    const x1=p.x+ux*rN, y1=p.y+uy*rN, x2=q.x-ux*(rN+3), y2=q.y-uy*(rN+3);
+    // curvatura: verso opposto per archi reciproci
+    const side=(a.daId<a.aId)?1:-1;
+    const mx=(x1+x2)/2 - uy*24*side, my=(y1+y2)/2 + ux*24*side;
+    const w=(1.6+a.forza*7).toFixed(1);
+    const col=a.positiva?'var(--verde)':'var(--rosso)';
+    const mk=a.positiva?'url(#fr-v)':'url(#fr-r)';
+    const dash=a.auto?'':'6 4';
+    const tip=(a.positiva?'Fa bene: ':'Fa male: ')+Math.round(a.forza*100)+'%'+(a.auto?' (automatico)':' (manuale)')+(a.nota?' — '+a.nota:'');
+    archiSvg+=`<path d="M${x1.toFixed(1)},${y1.toFixed(1)} Q${mx.toFixed(1)},${my.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-opacity="${(0.45+a.forza*0.5).toFixed(2)}" ${dash?`stroke-dasharray="${dash}"`:''} marker-end="${mk}"><title>${esc(tip)}</title></path>`;
+  }
+  let nodiSvg="";
+  for(const n of dati.nodi){
+    const p=pos[n.id];
+    const label=esc(n.label);
+    nodiSvg+=`<g>
+      <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${rN}" fill="var(--card)" stroke="var(--bordo)" stroke-width="2"></circle>
+      <text x="${p.x.toFixed(1)}" y="${(p.y+6).toFixed(1)}" text-anchor="middle" font-size="18">${n.emoji}</text>
+      <text x="${p.x.toFixed(1)}" y="${(p.y+rN+13).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="var(--testo)" font-weight="600">${label}</text>
+    </g>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:520px;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="fr-v" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--verde)"></path></marker>
+      <marker id="fr-r" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--rosso)"></path></marker>
+    </defs>
+    ${archiSvg}${nodiSvg}
+  </svg>`;
+}
+function cartaGrafoCorrelazioni(){
+  const sp=saluteProfilo(); const man=(sp&&sp.grafoManuale)||[];
+  const nDati=Object.keys(vociProfilo()).filter(d=>compilato(d)).length;
+  const dati=datiGrafoCorrelazioni();
+  let h=`<div class="card"><h2>🕸️ Mappa delle correlazioni</h2>
+    <div class="sotto" style="margin-top:0;margin-bottom:8px">Ogni pallino è un punto focale (sonno, stanchezza, fastidi…). Le frecce mostrano <b>come una cosa influenza l'altra</b>: più la freccia è spessa, più il collegamento è forte. <span style="color:var(--verde);font-weight:700">Verde</span> = fa bene (riduce), <span style="color:var(--rosso);font-weight:700">rosso</span> = fa male (aumenta). Le frecce tratteggiate sono i collegamenti che aggiungi a mano.</div>`;
+  if(dati.archi.length===0){
+    h+=`<div class="sotto" style="padding:10px 0">Ancora nessun collegamento da mostrare.${nDati<14?` Servono almeno <b>14 giorni</b> di dati per le frecce automatiche (ne hai <b>${nDati}</b>), ma puoi già aggiungerne di tue qui sotto.`:` Aggiungi un collegamento manuale per iniziare.`}</div>`;
+  } else {
+    h+=`<div style="overflow-x:auto;margin:4px -4px 6px">${svgGrafoCorrelazioni(dati)}</div>`;
+  }
+  // elenco collegamenti manuali con eliminazione
+  if(man.length){
+    h+=`<div class="sotto" style="font-weight:700;margin:10px 0 4px">Collegamenti manuali</div>`;
+    man.forEach((m,i)=>{
+      h+=`<div class="esame-riga"><span>${m.daEmoji||''} ${esc(m.daLabel)} → ${m.aEmoji||''} ${esc(m.aLabel)}
+        <span class="sotto" style="display:inline"> · ${m.positiva?'✅ fa bene':'⚠️ fa male'} · ${['debole','media','forte'][Math.min(2,Math.round(m.forza*2.5))]||'media'}${m.nota?' · '+esc(m.nota):''}</span></span>
+        <button class="btn btn-piccolo" onclick="eliminaArcoManuale(${i})" title="Rimuovi">🗑️</button></div>`;
+    });
+  }
+  h+=`<button class="chip" style="margin-top:10px" onclick="apriArcoManuale()">➕ Aggiungi collegamento</button>
+    <div class="avviso" style="margin-top:10px">⚠️ Le frecce automatiche sono indizi statistici, non rapporti di causa-effetto certi.</div></div>`;
+  return h;
+}
+/* --- Collegamento manuale: modale di inserimento --- */
+let arcoTmp={daId:'',aId:'',forza:0.5,positiva:false};
+function opzioniNodo(sel){
+  const focali=nodiFocali();
+  const extra=datiGrafoCorrelazioni().nodi.filter(n=>!focali.some(f=>f.id===n.id));
+  const tutti=focali.concat(extra);
+  return tutti.map(n=>`<option value="${esc(n.id)}" ${sel===n.id?'selected':''}>${n.emoji} ${esc(n.label)}</option>`).join("");
+}
+function apriArcoManuale(){
+  arcoTmp={daId:'',aId:'',forza:0.5,positiva:false};
+  const html=`<div class="modale-overlay" style="z-index:80" onclick="if(event.target===this)chiudiArcoManuale()">
+    <div class="modale" style="max-height:80vh"><div class="maniglia"></div>
+      <h2>➕ Collegamento tra due punti</h2>
+      <div class="sotto" style="margin-top:0;margin-bottom:10px">Indica come un punto influenza un altro. Comparirà nella mappa come freccia tratteggiata.</div>
+      <label class="sotto" style="font-weight:700">Da (causa)</label>
+      <select id="arco-da" style="width:100%;margin:4px 0 10px;padding:10px;border:2px solid var(--bordo);border-radius:12px;background:var(--input);color:var(--testo)"><option value="">— scegli —</option>${opzioniNodo('')}</select>
+      <label class="sotto" style="font-weight:700">Verso (effetto)</label>
+      <select id="arco-a" style="width:100%;margin:4px 0 10px;padding:10px;border:2px solid var(--bordo);border-radius:12px;background:var(--input);color:var(--testo)"><option value="">— scegli —</option>${opzioniNodo('')}</select>
+      <label class="sotto" style="font-weight:700">Effetto</label>
+      <div class="chips" id="arco-segno" style="margin:4px 0 10px">
+        <button type="button" class="chip" onclick="arcoTmp.positiva=false;segnaArcoSel()">⚠️ Fa male (aumenta)</button>
+        <button type="button" class="chip" onclick="arcoTmp.positiva=true;segnaArcoSel()">✅ Fa bene (riduce)</button></div>
+      <label class="sotto" style="font-weight:700">Forza</label>
+      <div class="chips" id="arco-forza" style="margin:4px 0 10px">
+        <button type="button" class="chip" onclick="arcoTmp.forza=0.28;segnaArcoSel()">Debole</button>
+        <button type="button" class="chip" onclick="arcoTmp.forza=0.5;segnaArcoSel()">Media</button>
+        <button type="button" class="chip" onclick="arcoTmp.forza=0.8;segnaArcoSel()">Forte</button></div>
+      <label class="sotto" style="font-weight:700">Nota (facoltativa)</label>
+      <input type="text" id="arco-nota" placeholder="Es. solo se salto la colazione" style="width:100%;margin:4px 0 12px;padding:10px;border:2px solid var(--bordo);border-radius:12px;background:var(--input);color:var(--testo)">
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-verde" onclick="salvaArcoManuale()">✓ Aggiungi</button>
+        <button class="btn" onclick="chiudiArcoManuale()">Annulla</button></div>
+    </div></div>`;
+  const host=document.createElement("div"); host.id="arco-host"; host.innerHTML=html;
+  document.body.appendChild(host);
+  segnaArcoSel();
+}
+function segnaArcoSel(){
+  const seg=document.getElementById("arco-segno");
+  if(seg){ seg.children[0].classList.toggle("attivo",!arcoTmp.positiva); seg.children[1].classList.toggle("attivo-verde",arcoTmp.positiva); }
+  const fz=document.getElementById("arco-forza");
+  if(fz){ const idx=arcoTmp.forza<0.4?0:(arcoTmp.forza<0.65?1:2);
+    [...fz.children].forEach((c,i)=>c.classList.toggle("attivo-verde",i===idx)); }
+}
+function chiudiArcoManuale(){ const h=document.getElementById("arco-host"); if(h) h.remove(); }
+function salvaArcoManuale(){
+  const daId=(document.getElementById("arco-da")||{}).value||"";
+  const aId=(document.getElementById("arco-a")||{}).value||"";
+  if(!daId||!aId){ alert("Scegli il punto di partenza e quello di arrivo."); return; }
+  if(daId===aId){ alert("Scegli due punti diversi."); return; }
+  const nota=norm(((document.getElementById("arco-nota")||{}).value||"").trim());
+  // recupera label/emoji dei nodi scelti
+  const catalogo={}; datiGrafoCorrelazioni().nodi.forEach(n=>catalogo[n.id]=n); nodiFocali().forEach(n=>{ if(!catalogo[n.id]) catalogo[n.id]=n; });
+  const da=catalogo[daId], a=catalogo[aId];
+  const sp=saluteProfilo(); if(!sp.grafoManuale) sp.grafoManuale=[];
+  sp.grafoManuale.push({daId, daLabel:da.label, daEmoji:da.emoji, aId, aLabel:a.label, aEmoji:a.emoji,
+    forza:arcoTmp.forza, positiva:arcoTmp.positiva, nota});
+  chiudiArcoManuale();
+  mostraToast("Collegamento aggiunto ✓");
+  salva(); render();
+}
+function eliminaArcoManuale(i){
+  const sp=saluteProfilo(); if(!sp.grafoManuale||!sp.grafoManuale[i]) return;
+  sp.grafoManuale.splice(i,1); salva(); render();
 }
 
 /* ============ VISTA SALUTE ============ */
@@ -2523,18 +2769,39 @@ function cambiaUnitaCategoria(catId){
   const nuovo=prompt("Unità di misura canonica per «"+c.nome+"» (i nuovi valori verranno convertiti a questa quando possibile):", c.unita||""); if(nuovo===null) return;
   c.unita=norm(nuovo).trim(); salva(); render();
 }
+/* Apre un selettore elegante per fondere questa categoria dentro un'altra */
 function unisciCategoria(catId){
   const sp=saluteProfilo(); const c=categoriaById(sp,catId); if(!c) return;
-  const altre=(sp.categorie||[]).filter(x=>x.id!==catId);
-  if(!altre.length){ alert("Non ci sono altre categorie con cui unire."); return; }
-  const elenco=altre.map((x,i)=>`${i+1}. ${x.nome}`).join("\n");
-  const sc=prompt("Unisci «"+c.nome+"» dentro quale categoria? Scrivi il numero:\n"+elenco); if(sc===null) return;
-  const idx=parseInt(sc,10)-1; if(isNaN(idx)||!altre[idx]){ alert("Scelta non valida."); return; }
-  const dest=altre[idx];
+  const altre=(sp.categorie||[]).filter(x=>x.id!==catId).sort((a,b)=>a.nome.localeCompare(b.nome,"it"));
+  if(!altre.length){ alert("Non ci sono altre categorie con cui unire. Servono almeno due categorie."); return; }
+  const conteggio=id=>(sp.sangue||[]).filter(e=>e.catId===id).length;
+  let voci="";
+  for(const cat of altre){
+    const n=conteggio(cat.id);
+    voci+=`<button type="button" class="sc-voce" onclick="confermaUnisciCategoria('${catId}','${cat.id}')">
+      🔗 ${esc(cat.nome)}${cat.unita?` <span class="sotto" style="display:inline;margin-left:4px">${esc(cat.unita)}</span>`:''}
+      <span class="sotto" style="display:inline;margin-left:4px">· ${n} valor${n===1?'e':'i'}</span></button>`;
+  }
+  const html=`<div class="modale-overlay" style="z-index:80" onclick="if(event.target===this)chiudiUnisciCategoria()">
+    <div class="modale" style="max-height:74vh"><div class="maniglia"></div>
+      <h2>🔗 Fondi la categoria</h2>
+      <div class="sotto" style="margin-top:0;margin-bottom:8px">Sposta tutti i valori di «<b>${esc(c.nome)}</b>» dentro un'altra categoria. Utile quando la lettura automatica ha creato due categorie per lo stesso esame. L'operazione impara anche il nome come sinonimo, così i prossimi valori finiranno da soli nella categoria giusta.</div>
+      <div class="sc-lista">${voci}</div>
+      <button class="btn" style="margin-top:10px" onclick="chiudiUnisciCategoria()">Annulla</button>
+    </div></div>`;
+  const host=document.createElement("div"); host.id="unisci-cat-host"; host.innerHTML=html;
+  document.body.appendChild(host);
+}
+function chiudiUnisciCategoria(){ const h=document.getElementById("unisci-cat-host"); if(h) h.remove(); }
+function confermaUnisciCategoria(catId, destId){
+  const sp=saluteProfilo(); const c=categoriaById(sp,catId), dest=categoriaById(sp,destId);
+  chiudiUnisciCategoria();
+  if(!c||!dest||catId===destId) return;
   // sposta le voci e impara gli alias
   for(const e of sp.sangue){ if(e.catId===catId) e.catId=dest.id; }
   dest.alias=dest.alias||[]; for(const a of [c.nome].concat(c.alias||[])){ if(!dest.alias.some(x=>normNome(x)===normNome(a))&&normNome(dest.nome)!==normNome(a)) dest.alias.push(a); }
   sp.categorie=sp.categorie.filter(x=>x.id!==catId);
+  mostraToast("Categorie fuse ✓");
   salva(); render();
 }
 function aggiungiSangue(){
