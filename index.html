@@ -909,7 +909,15 @@ function vistaOggi(){
     const nG=sp.notizie.filter(x=>x.data===dataInModifica);
     h+=`<div class="card"><h2>💊 Sanità in questo giorno</h2>`;
     if(fAtt.length===0&&tAtt.length===0&&vG.length===0&&nG.length===0) h+=`<div class="sotto" style="margin-top:0">Nessun farmaco, trattamento, visita o notizia registrata per questo giorno.</div>`;
-    if(fAtt.length>0||tAtt.length>0) h+=`<div class="sotto" style="margin-top:0;margin-bottom:8px">Hai preso/fatto quello di oggi? Segna anche se hai <b>saltato</b>: serve all'analisi.</div>`;
+    if(fAtt.length>0||tAtt.length>0){
+      // Default: tutto già segnato come "preso"/"fatto". L'utente cambia solo ciò che ha saltato.
+      const vv=voce(dataInModifica);
+      if(!vv.aderenza) vv.aderenza={};
+      let cambiato=false;
+      for(const x of [...fAtt,...tAtt]){ if(!vv.aderenza[x.id]){ vv.aderenza[x.id]="preso"; cambiato=true; } }
+      if(cambiato){ vv.agg=Date.now(); salva(); }
+      h+=`<div class="sotto" style="margin-top:0;margin-bottom:8px">Predefinito: tutto <b>preso/fatto</b>. Segna solo ciò che hai <b>saltato</b>: serve all'analisi.</div>`;
+    }
     for(const f of fAtt) h+=rigaAderenza(f.id,"💊",f.nome,f.dose,"Preso");
     for(const t of tAtt) h+=rigaAderenza(t.id,"🧑‍⚕️",t.nome,t.dett,"Fatto");
     for(const x of vG) h+=`<div class="elemento-lista">🩺 <b>${esc(x.testo)}</b>${x.invasivo?' <span class="badge" style="background:var(--rosso)">invasivo</span>':""}</div>`;
@@ -1127,9 +1135,9 @@ function impostaPesoSaltato(on){
 }
 function rigaAderenza(id, emoji, nome, dett, verboFatto){
   const v=voce(dataInModifica);
-  const st=(v.aderenza&&v.aderenza[id])||"";
+  const st=(v.aderenza&&v.aderenza[id])||"preso";
   const quanto=(v.aderenzaDett&&v.aderenzaDett[id])||"";
-  return `<div class="elemento-lista" style="display:block">
+  return `<div class="elemento-lista riga-aderenza" data-adid="${id}" style="display:block">
     <div>${emoji} <b>${esc(nome)}</b> ${dett?"— "+esc(dett):""}</div>
     <div class="chips" style="margin-top:6px">
       <button class="chip ${st==="preso"?"attivo-verde":""}" onclick="impostaAderenza('${id}','preso')">✅ ${verboFatto}</button>
@@ -1146,6 +1154,15 @@ function impostaAderenza(id, stato){
   if(stato==="saltato" && v.aderenzaDett) delete v.aderenzaDett[id];
   v.agg=Date.now();
   salva(); render();
+  scorriProssimaAderenza(id);
+}
+function scorriProssimaAderenza(idAttuale){
+  requestAnimationFrame(()=>{
+    const righe=Array.from(document.querySelectorAll(".riga-aderenza"));
+    const i=righe.findIndex(r=>r.getAttribute("data-adid")===idAttuale);
+    const prossima=(i>=0&&i+1<righe.length)?righe[i+1]:null;
+    if(prossima) prossima.scrollIntoView({behavior:"smooth",block:"center"});
+  });
 }
 function impostaAderenzaDett(id, val){
   const v=voce(dataInModifica);
